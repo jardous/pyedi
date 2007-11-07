@@ -1,9 +1,9 @@
 #labels Phase-Deploy
 = Getting the sources =
- * Subversion - check out : _svn checkout http://pyedi.googlecode.com/svn/trunk/ pyedi_
+ * Subversion - check out : `svn checkout http://pyedi.googlecode.com/svn/trunk/ pyedi`
 or
- * Downloading from [http://pyedi.googlecode.com/files/pyedi-0.0.1.tar.gz] and extracting _tar xfz pyedi-0.0.1.tar.gz_
+ * Downloading from [http://pyedi.googlecode.com/files/pyedi-0.0.1.tar.gz] and extracting `tar xfz pyedi-0.0.1.tar.gz`
 
 = Installing =
- * _cd pyedi-0.0.1_
- * _python ./setup install_ (requires administrator rights)
+ * `cd pyedi-0.0.1`
+ * `python ./setup install` (requires administrator rights)
