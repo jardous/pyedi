@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # #####################################################################
-# Copyright (c) 2005 Jiří Popek <jiri.popek@gmail.com>
+# Copyright (c) 2007 Jiří Popek <jiri.popek@gmail.com>
 #
 # name        : pyedit
-# description : Python programmer's editor
+# description : Python programming editor setup script
+#
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# LICENCE:
+# LICENSE:
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -17,16 +18,15 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Library General Public License for more details.
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
 # author : Jiří Popek
 # email  : jiri.popek@gmail.com
 # date   : 7.11.2007
 #
-# last modify: 7.11.2007
-# history:
-#       
+# $Rev$:     Revision of last commit
+# $Author$:  Author of last commit
+# $Date$:    Date of last commit
 # #####################################################################
-
-"""Setup script for pyedi"""
 
 from distutils.core import setup
 from distutils.file_util import copy_file
