@@ -6,4 +6,4 @@ or
 
 = Installing =
  * `cd pyedi-0.0.1`
- * `python ./setup install` (requires administrator rights)
+ * `python ./setup.py install` (requires administrator rights)
