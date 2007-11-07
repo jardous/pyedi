@@ -1,10 +1,39 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+# #####################################################################
+# Copyright (c) 2007 Jiří Popek <jiri.popek@gmail.com>
+#
+# name        : pyedit
+# description : Python programming editor
+#
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# LICENSE:
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Library General Public License for more details.
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+# author : Jiří Popek
+# email  : jiri.popek@gmail.com
+# date   : 7.11.2007
+#
+# $Rev$:     Revision of last commit
+# $Author$:  Author of last commit
+# $Date$:    Date of last commit
+# #####################################################################
+
 import sys, string, os
 from qt import Qt, QAction, QApplication, QFileDialog, QListView, QListViewItem, QListViewItemIterator, QMainWindow, QMessageBox, QPixmap, QPopupMenu, QPrinter, QFont, QPoint, qApp, SIGNAL, SLOT, QEvent
 import qtext
 from qtext import QextScintilla as qs, QSCINTILLA_VERSION_STR
+
+
 
 __author__ = u'jiri.popek@gmail.com (Jiří Popek)'
 
