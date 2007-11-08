@@ -29,7 +29,7 @@
 # #####################################################################
 
 import sys, string, os
-from qt import Qt, QAction, QApplication, QFileDialog, QListView, QListViewItem, QListViewItemIterator, QMainWindow, QMessageBox, QPixmap, QPopupMenu, QPrinter, QFont, QPoint, qApp, SIGNAL, SLOT, QEvent, QString, QStringList
+from qt import Qt, QAction, QApplication, QFileDialog, QListView, QListViewItem, QListViewItemIterator, QMainWindow, QMessageBox, QPixmap, QPopupMenu, QPrinter, QFont, QPoint, qApp, SIGNAL, SLOT, QEvent, QString, QStringList, QUriDrag, QLineEdit, QInputDialog, QFileInfo
 import qtext
 from qtext import QextScintilla as qs, QSCINTILLA_VERSION_STR
 
