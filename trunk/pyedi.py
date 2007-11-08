@@ -406,7 +406,7 @@ class QSci(qtext.QextScintilla):
             self.parent.statusBar().message('Can not write to %s' % (d.filename), 2000)
             return
         
-        f.write(self.text())
+        f.write(str(self.text().utf8()))
         f.close()
         
         print d.filename, ': setModified(False)'
