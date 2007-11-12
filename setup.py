@@ -33,7 +33,7 @@ from distutils.file_util import copy_file
 import glob
 import os
 import sys
-from pyedi import version, appname
+from pyedi import VERSION, APPNAME
 
 __author__ = u'jiri.popek@gmail.com (Jiří Popek)'
 
@@ -76,7 +76,7 @@ Programming Language :: Python
 # get python short version
 py_short_version = '%s.%s' % sys.version_info[:2]
 
-python_site_app_dir = os.path.join(realPrefix, 'lib', 'python%s' % py_short_version, 'site-packages', appname)
+python_site_app_dir = os.path.join(realPrefix, 'lib', 'python%s' % py_short_version, 'site-packages', APPNAME)
 if realPrefix != sys.prefix:
     python_site_app_dir = realPrefix
     
@@ -101,7 +101,7 @@ def data_files():
 
 METADATA = {
     'name'              : 'pyedi',
-    'version'           : version,
+    'version'           : VERSION,
     'description'       : 'simple Python programming editr',
     'long_description'  : long_desc,
     'author'            : 'Jiří Popek',
