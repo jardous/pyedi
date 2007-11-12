@@ -35,7 +35,6 @@ from qtext import QextScintilla as qs, QSCINTILLA_VERSION_STR
 
 __author__ = u'jiri.popek@gmail.com (Jiří Popek)'
 
-documents = []
 FONT_SIZE = 10
 eolM = {0:'\r\n', 1:'\r', 2:'\n'}
 
