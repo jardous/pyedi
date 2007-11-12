@@ -66,7 +66,7 @@ class QSci(qs):
     
     def setTabLabel(self):
         tw = qApp.mainWidget().tab_widget
-        if self.isModified():
+        if self.isModified(): #TODO: not reliable - WHY?
             tw.setTabLabel(self, '* ' + os.path.basename(self.filename))
         else:
             tw.setTabLabel(self, os.path.basename(self.filename))
@@ -161,7 +161,7 @@ class QSci(qs):
             self.setLexer(self.lex)
         
         # a little hack - set font for comments
-        for style in range(0, 14):
+        for style in range(0, 12):
             self.SendScintilla(qs.SCI_STYLESETFONT, style, "monospace")
             self.SendScintilla(qs.SCI_STYLESETSIZE, style, FONT_SIZE)
         
@@ -246,27 +246,29 @@ class QSci(qs):
         
         if isinstance(self.lex, qtext.QextScintillaLexerPython):
             import compiler
+            
             try:
-                compiler.parse(str(self.text()))
+                compiler.parse(str(self.text().utf8()))
             except Exception, detail:
-                print 'detail X%sX' % detail #DEBUG
                 match = re.match('^(.+) \(line (\d+)\)$', str(detail))
                 if match:
                     edescr, eline = match.groups()
-                    eline = int(eline)-1
+                    eline = int(eline) - 1
+            
         elif isinstance(self.lex, qtext.QextScintillaLexerHTML):
             from kid import compiler #TODO: check kid installed
             from cStringIO import StringIO
-            t = StringIO(self.text())
+            t = StringIO(str(self.text().utf8()))
+            
             try:
                 codeobject = compiler.compile(source=t)
             except Exception, detail:
                 detail = str(detail).strip().split('\n')[-1]
-                print 'detail X%sX' % detail #DEBUG
                 match = re.match('(.+): line (\d+), column (\d+)$', detail)
                 if match:
                     edescr, eline, ecolumn = match.groups()
                     eline, ecolumn = int(eline) - 1, int(ecolumn)
+            
         else:
             self.emit(PYSIGNAL('status_message'), ('Only Python and XML syntax check available', 2000))
         
@@ -360,7 +362,7 @@ class QSci(qs):
             self.save()
         else:
             self.emit(PYSIGNAL('status_message'), ('%s not modified' % (self.filename), 2000))
-            #self.save()
+            self.save()  # isModified not reliable - WHY?
     
     def save(self):
         try:
@@ -428,7 +430,7 @@ class QSci(qs):
                 event.acceptAction()
                 for fn in files:
                     if not QFileInfo(fn).isDir():
-                        qApp.mainWidget().load(unicode(fn))
+                        qApp.mainWidget().newDoc(unicode(fn))
                     else:
                         self.emit(PYSIGNAL('status_message'), (fn + ' is not a file', 2000))
             self.dnd = False
