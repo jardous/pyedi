@@ -127,7 +127,7 @@ class QSci(qs):
             self.lex.setFoldQuotes(True)
             self.lex.commentString = '#'
             self.lex.blockCommentStrings = None
-        elif ext in ('.html', '.xml', '.svg', '.kid'):
+        elif ext in ('.html', '.xml', '.svg', '.kid', '.ui'):
             self.lex = qtext.QextScintillaLexerHTML(self)
             self.lex.commentString = None
             self.lex.blockCommentStrings = ('<!--', '-->')
