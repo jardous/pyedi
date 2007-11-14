@@ -61,27 +61,22 @@ class QSci(QsciScintilla):
             self.loadDocument(filename)
         
         #self.SendScintilla(qs.SCI_ASSIGNCMDKEY, qs.SCK_TAB + (qs.SCMOD_CTRL<<16), qs.SCI_BACKTAB)
-        
-        #QsciCommand.setKey()
+
         cmds = self.standardCommands().commands()
         pprint([(str(x.key()), str(x.description())) for x in cmds])
-        self.connect(self, SIGNAL("textChanged()"), self.textChanged)
+        self.connect(self, SIGNAL("modificationChanged(bool)"), self.modificationChanged)
     
-    def textChanged(self):
-        self.setModified(True)
-        self.setTabLabel()
-    
-    def setTabLabel(self):
+    def modificationChanged(self, val):
         tw = qApp.activeWindow().tab_widget
         ct = tw.currentIndex()
         
         if not self.filename: return
         
-        if self.isUndoAvailable():#isModified(): #TODO: not reliable - WHY?
+        if val:
             tw.setTabText(ct, '* ' + os.path.basename(self.filename))
         else:
             tw.setTabText(ct, os.path.basename(self.filename))
-    
+        
     def eventFilter(self, object, event):
         used = 0
         if event.type() == QEvent.DragEnter:
@@ -129,6 +124,7 @@ class QSci(QsciScintilla):
         if self.filename:
             basename, ext = os.path.splitext(self.filename)
         
+        lex = None
         if ext in ('.py', '.spy'):
             lex = QsciLexerPython(self)
             lex.setIndentationWarning(QsciLexerPython.Inconsistent)
@@ -195,12 +191,12 @@ class QSci(QsciScintilla):
         eline = None
         ecolumn = 0
         edescr = ''
-        doc = self.text()
+        doc = str(self.text().toUtf8())
         
         if isinstance(self.lexer(), QsciLexerPython):
             import compiler
             try:
-                compiler.parse(str(self.text().utf8()))
+                compiler.parse(doc)
             except Exception, detail:
                 match = re.match('^(.+) \(line (\d+)\)$', str(detail))
                 if match:
@@ -210,7 +206,7 @@ class QSci(QsciScintilla):
         elif isinstance(self.lexer(), QsciLexerHTML):
             from kid import compiler #TODO: check kid installed
             from cStringIO import StringIO
-            t = StringIO(str(self.text().utf8()))
+            t = StringIO(doc)
             
             try:
                 codeobject = compiler.compile(source=t)
@@ -313,7 +309,7 @@ class QSci(QsciScintilla):
             self.emit(SIGNAL('status_message'), 'Can not write to %s' % (self.filename or ''), 2000)
             return
         
-        f.write(str(self.text().utf8()))
+        f.write(str(self.text().toUtf8()))
         f.close()
         
         self.setModified(False)
