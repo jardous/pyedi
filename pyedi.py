@@ -29,9 +29,13 @@
 # #####################################################################
 
 import sys, string, os
-from qt import *
-import qtext
-from qtext import QextScintilla as qs, QSCINTILLA_VERSION_STR
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+import PyQt4.Qsci as qtext
+from PyQt4.Qsci import *
+from PyQt4.Qsci import QsciScintillaBase as qs
+
+from pprint import pprint
 
 __author__ = u'jiri.popek@gmail.com (Jiří Popek)'
 
@@ -43,20 +47,24 @@ APPNAME = 'pyedi'
 
 INDENT_WIDTH = 4
 
+main_window = None
 
-class QSci(qs):
+class QSci(QsciScintilla):
     
     def __init__(self, parent, filename):
-        qtext.QextScintilla.__init__(self, parent)
+        QsciScintilla.__init__(self, parent)
         self.filename = filename
-        self.lex = None
         self.SendScintilla(qs.SCI_SETHSCROLLBAR)
         self.dnd = False
         
         if filename:
             self.loadDocument(filename)
         
-        self.SendScintilla(qs.SCI_ASSIGNCMDKEY, qs.SCK_TAB + (qs.SCMOD_CTRL<<16), qs.SCI_BACKTAB)
+        #self.SendScintilla(qs.SCI_ASSIGNCMDKEY, qs.SCK_TAB + (qs.SCMOD_CTRL<<16), qs.SCI_BACKTAB)
+        
+        #QsciCommand.setKey()
+        cmds = self.standardCommands().commands()
+        pprint([(str(x.key()), str(x.description())) for x in cmds])
         self.connect(self, SIGNAL("textChanged()"), self.textChanged)
     
     def textChanged(self):
@@ -64,14 +72,15 @@ class QSci(qs):
         self.setTabLabel()
     
     def setTabLabel(self):
-        tw = qApp.mainWidget().tab_widget
+        tw = qApp.activeWindow().tab_widget
+        ct = tw.currentIndex()
         
         if not self.filename: return
         
         if self.isUndoAvailable():#isModified(): #TODO: not reliable - WHY?
-            tw.setTabLabel(self, '* ' + os.path.basename(self.filename))
+            tw.setTabText(ct, '* ' + os.path.basename(self.filename))
         else:
-            tw.setTabLabel(self, os.path.basename(self.filename))
+            tw.setTabText(ct, os.path.basename(self.filename))
     
     def eventFilter(self, object, event):
         used = 0
@@ -121,46 +130,46 @@ class QSci(qs):
             basename, ext = os.path.splitext(self.filename)
         
         if ext in ('.py', '.spy'):
-            self.lex = qtext.QextScintillaLexerPython(self)
-            self.lex.setIndentationWarning(qtext.QextScintillaLexerPython.Inconsistent)
-            self.lex.setFoldComments(True)
-            self.lex.setFoldQuotes(True)
-            self.lex.commentString = '#'
-            self.lex.blockCommentStrings = None
+            lex = QsciLexerPython(self)
+            lex.setIndentationWarning(QsciLexerPython.Inconsistent)
+            lex.setFoldComments(True)
+            lex.setFoldQuotes(True)
+            lex.commentString = '#'
+            lex.blockCommentStrings = None
         elif ext in ('.html', '.xml', '.svg', '.kid', '.ui'):
-            self.lex = qtext.QextScintillaLexerHTML(self)
-            self.lex.commentString = None
-            self.lex.blockCommentStrings = ('<!--', '-->')
+            lex = QsciLexerHTML(self)
+            lex.commentString = None
+            lex.blockCommentStrings = ('<!--', '-->')
         elif ext in ('.c', '.cc', '.cpp', '.h', '.hh'):
-            self.lex = qtext.QextScintillaLexerCPP(self)
-            self.lex.commentString = '//'
-            self.lex.blockCommentStrings = ('/*', '*/')
+            lex = QsciLexerCPP(self)
+            lex.commentString = '//'
+            lex.blockCommentStrings = ('/*', '*/')
         elif basename in ['Makefile']:
-            self.lex = qtext.QextScintillaLexerMakefile(self)
-            self.lex.commentString = '#'
-            self.lex.blockCommentStrings = None
+            lex = QsciLexerMakefile(self)
+            lex.commentString = '#'
+            lex.blockCommentStrings = None
         elif ext in ('.sh', '.cfg'):
-            self.lex = qtext.QextScintillaLexerBash(self)
-            self.lex.commentString = '#'
-            self.lex.blockCommentString = None
+            lex = QsciLexerBash(self)
+            lex.commentString = '#'
+            lex.blockCommentString = None
         elif ext in ('.java', ):
-            self.lex = qtext.QextScintillaLexerJava(self)
-            self.lex.commentString = '//'
-            self.lex.blockCommentStrings = ('/*', '*/')
+            lex = QsciLexerJava(self)
+            lex.commentString = '//'
+            lex.blockCommentStrings = ('/*', '*/')
         elif ext in ('.js', ):
-            self.lex = qtext.QextScintillaLexerJavaScript(self)
-            self.lex.commentString = '#'
-            self.lex.blockCommentStrings = ('/*', '*/')
+            lex = QsciLexerJavaScript(self)
+            lex.commentString = '#'
+            lex.blockCommentStrings = ('/*', '*/')
         elif ext in ('.css', ):
-            self.lex = qtext.QextScintillaLexerCSS(self)
-            self.lex.commentString = None
-            self.lex.blockCommentStrings = ('/*', '*/')
+            lex = QsciLexerCSS(self)
+            lex.commentString = None
+            lex.blockCommentStrings = ('/*', '*/')
         
         font = QFont("Monospace", FONT_SIZE)
         
-        if self.lex:
-            self.lex.setDefaultFont(font)
-            self.setLexer(self.lex)
+        if lex:
+            lex.setDefaultFont(font)
+            self.setLexer(lex)
         
         # a little hack - set font for comments
         for style in range(0, 12):
@@ -168,15 +177,15 @@ class QSci(qs):
             self.SendScintilla(qs.SCI_STYLESETSIZE, style, FONT_SIZE)
         
         self.setUtf8(1)
-        self.setBraceMatching(qs.SloppyBraceMatch)
+        self.setBraceMatching(QsciScintilla.SloppyBraceMatch)
         self.setAutoIndent(True)
         self.setIndentationWidth(INDENT_WIDTH)
         self.setIndentationGuides(True)
-        self.setWhitespaceVisibility(qs.WsVisible)
+        self.setWhitespaceVisibility(QsciScintilla.WsVisible)
         self.setIndentationsUseTabs(0)
         self.setAutoCompletionThreshold(1)
-        self.setWrapMode(qs.WrapWord)
-        self.setFolding(qs.PlainFoldStyle)
+        self.setWrapMode(QsciScintilla.WrapWord)
+        self.setFolding(QsciScintilla.PlainFoldStyle)
         self.setTabIndents(True)
         self.setBackspaceUnindents(True)
         self.setMargins()
@@ -188,7 +197,7 @@ class QSci(qs):
         edescr = ''
         doc = self.text()
         
-        if isinstance(self.lex, qtext.QextScintillaLexerPython):
+        if isinstance(self.lexer(), QsciLexerPython):
             import compiler
             try:
                 compiler.parse(str(self.text().utf8()))
@@ -198,7 +207,7 @@ class QSci(qs):
                     edescr, eline = match.groups()
                     eline = int(eline) - 1
             
-        elif isinstance(self.lex, qtext.QextScintillaLexerHTML):
+        elif isinstance(self.lexer(), QsciLexerHTML):
             from kid import compiler #TODO: check kid installed
             from cStringIO import StringIO
             t = StringIO(str(self.text().utf8()))
@@ -213,29 +222,30 @@ class QSci(qs):
                     eline, ecolumn = int(eline) - 1, int(ecolumn)
             
         else:
-            self.emit(PYSIGNAL('status_message'), ('Only Python and XML syntax check available', 2000))
+            self.emit(SIGNAL('status_message'), 'Only Python and XML syntax check available', 2000)
         
         if eline != None:
             self.setSelection(eline, ecolumn, eline, self.lineLength(eline)-len(eolM[self.eolMode()]))
             self.ensureLineVisible(eline)
             self.ensureCursorVisible()
-            self.emit(PYSIGNAL('status_message'), (edescr, 2000))
+            self.emit(SIGNAL('status_message'), (edescr, 2000))
         else:
-            self.emit(PYSIGNAL('status_message'), ('Syntax ok', 2000))
+            self.emit(SIGNAL('status_message'), ('Syntax ok', 2000))
     
     def convertEols(self, param):
         self.SendScintilla(qs.SCI_CONVERTEOLS, param)
         self.SendScintilla(qs.SCI_SETEOLMODE, param)
         self.setModified(True)
-        self.emit(PYSIGNAL('status_message'), ({0:'Win CRLF', 1:'MAC CR', 2:'Unix LF'}[param]+' end of line mode set', 2000))
+        self.emit(SIGNAL('status_message'), {0:'Win CRLF', 1:'MAC CR', 2:'Unix LF'}[param]+' end of line mode set', 2000)
     
     def comment(self):
         """ comment out the selected text or current line """
-        if not self.lex:
+        lex = self.lexer()
+        if not lex:
             return
         
-        commentStr = self.lex.commentString
-        bCommentStr = self.lex.blockCommentStrings
+        commentStr = lex.commentString
+        bCommentStr = lex.blockCommentStrings
         
         self.beginUndoAction()
         if not self.hasSelectedText():
@@ -284,7 +294,7 @@ class QSci(qs):
                                 QLineEdit.Normal, x)
         if res:
             if not self.findFirst(text, 1, 0, line, index):
-                self.emit(PYSIGNAL('status_message'), (text + ' not found', 2000))
+                self.emit(SIGNAL('status_message'), (text + ' not found', 2000))
     
     def saveRequest(self):
         if not self.filename:
@@ -293,14 +303,14 @@ class QSci(qs):
         if self.isModified():
             self.save()
         else:
-            self.emit(PYSIGNAL('status_message'), ('%s not modified' % (self.filename or ''), 2000))
+            self.emit(SIGNAL('status_message'), '%s not modified' % (self.filename or ''), 2000)
             self.save()  # isModified not reliable - WHY?
     
     def save(self):
         try:
             f = open(self.filename, 'w+')
         except:
-            self.emit(PYSIGNAL('status_message'), ('Can not write to %s' % (self.filename or ''), 2000))
+            self.emit(SIGNAL('status_message'), 'Can not write to %s' % (self.filename or ''), 2000)
             return
         
         f.write(str(self.text().utf8()))
@@ -308,17 +318,17 @@ class QSci(qs):
         
         self.setModified(False)
         self.setTabLabel()
-        self.emit(PYSIGNAL('status_message'), ('File %s saved' % (self.filename or ''), 2000))
+        self.emit(SIGNAL('status_message'), 'File %s saved' % (self.filename or ''), 2000)
     
     def saveAs(self):
-        fn = QFileDialog.getSaveFileName(self.filename or '', '', self)
+        fn = QFileDialog.getSaveFileName(self, 'Save As', self.filename or '')
         if not fn.isEmpty():
             self.filename = unicode(fn)
             self.save()
             self.setAutoLexer()
             return True
         else:
-            self.emit(PYSIGNAL('status_message'), ('Saving aborted', 2000))
+            self.emit(SIGNAL('status_message'), 'Saving aborted', 2000)
             return False
     
     def close(self):
@@ -340,13 +350,18 @@ class QSci(qs):
         return True
     
     def dragEnterEvent(self, event):
-        self.dnd = QUriDrag.canDecode(event)
-        event.accept(self.dnd)
-        return self.dnd
+        mime = event.mimeData()
+        self.dnd = mime.hasUrls()#QUriDrag.canDecode(event)
+        if self.dnd:
+            event.accept()
+        else:
+            event.ignore()
     
     def dragMoveEvent(self, event):
-        event.accept(self.dnd)
-        return self.dnd
+        if self.dnd:
+            event.accept()
+        else:
+            event.ignore()
     
     def dragLeaveEvent(self, event):
         if self.dnd:
@@ -355,42 +370,196 @@ class QSci(qs):
         return False
     
     def dropEvent(self, event):
-        if QUriDrag.canDecode(event):
-            files = QStringList()
-            ok = QUriDrag.decodeLocalFiles(event, files)
-            if ok:
-                event.acceptAction()
-                for fn in files:
-                    if not QFileInfo(fn).isDir():
-                        qApp.mainWidget().newDoc(unicode(fn))
-                    else:
-                        self.emit(PYSIGNAL('status_message'), (fn + ' is not a file', 2000))
+        mime = event.mimeData()
+        if mime.hasUrls():
+            files = mime.urls()
+            event.accept()
+            for fn in files:
+                fn = fn.toLocalFile()
+                if not QFileInfo(fn).isDir():
+                    main_window.newDoc(unicode(fn))
+                else:
+                    self.emit(SIGNAL('status_message'), fn + ' is not a file', 2000)
+                
             self.dnd = False
-            return True
-        return False
+        else:
+            event.ignore()
 
 
 
 class ApplicationWindow(QMainWindow):
     def __init__(self, caption=APPNAME):
-        QMainWindow.__init__(self, None, caption, Qt.WDestructiveClose)
+        QMainWindow.__init__(self)#, None, caption)#, Qt.WDestructiveClose)
         self.printer = QPrinter()
         
         self.tab_widget = QTabWidget(self)
         self.setCentralWidget(self.tab_widget)
+
+        
+
+       
+        
+        self.createActions()
+        self.createMenus()
+        
+        self.readSettings()
+#        self.menu = QMenuBar(self)
+#        self.menu.setEnabled(1)
+#        self.menuFile = QMenu(self)
+#        self.editMenu = QMenu(self)
+#        self.toolsMenu = QMenu(self)
         self.statusMessage('Ready', 2000)
+    
+    def readSettings(self):
+        settings = QSettings('popeksoft', APPNAME)
+        pos = settings.value('/geometry/pos', QVariant(QPoint(0, 0))).toPoint()
+        size = settings.value('/geometry/size', QVariant(QSize(800,600))).toSize()
         
-        settings = QSettings()
-        settings.setPath('popeksoft', APPNAME)
-        width = settings.readNumEntry('/geometry/width', 800)[0]
-        height = settings.readNumEntry('/geometry/height', 600)[0]
-        
-        self.resize(width, height)
-        self.clearWState(Qt.WState_Polished)
-        
+        self.resize(size)
+        self.move(pos)
+    
+    def writeSettings(self):
+        settings = QSettings('popeksoft', APPNAME)
+        settings.setValue("pos", QVariant(self.pos()))
+        settings.setValue("size", QVariant(self.size()))
+    
+    def save(self):
+        self.tab_widget.currentWidget().saveRequest()
+    def saveAs(self):
+        self.tab_widget.currentWidget().saveAs()
+    def cut(self):
+        self.tab_widget.currentWidget().cut()
+    def copy(self):
+        self.tab_widget.currentWidget().copy()
+    def paste(self):
+        self.tab_widget.currentWidget().paste()
+    def find(self):
+        self.tab_widget.currentWidget().find()
+    def findNext(self):
+        self.tab_widget.currentWidget().findNext()
+    
+    def createActions(self):
         def ct():
-            return self.tab_widget.currentPage()
+            print 'ct()'
+            return self.tab_widget.currentWidget()
         
+        self.newAct = QAction("&New", self)
+        self.newAct.setShortcut("Ctrl+N")
+        self.newAct.setStatusTip("Create a new file")
+        self.connect(self.newAct, SIGNAL("triggered()"), self.newDoc)
+
+        self.openAct = QAction("&Open...", self)
+        self.openAct.setShortcut("Ctrl+O")
+        self.openAct.setStatusTip("Open an existing file")
+        self.connect(self.openAct, SIGNAL("triggered()"), self.newDoc)
+        
+        self.saveAct = QAction("&Save", self)
+        self.saveAct.setShortcut("Ctrl+S")
+        self.saveAct.setStatusTip("Save the document to disk")
+        self.connect(self.saveAct, SIGNAL("triggered()"), self.save)
+
+        self.saveAsAct = QAction("Save &As...", self)
+        self.saveAsAct.setStatusTip("Save the document under a new name")
+        self.connect(self.saveAsAct, SIGNAL("triggered()"), self.saveAs)
+
+        self.closeAct = QAction("&Close", self)
+        self.closeAct.setShortcut("Ctrl+W")
+        self.closeAct.setStatusTip("Close this window")
+        self.connect(self.closeAct, SIGNAL("triggered()"), self.closeCurrentDoc)
+
+        self.exitAct = QAction("E&xit", self)
+        self.exitAct.setShortcut("Ctrl+Q")
+        self.exitAct.setStatusTip("Exit the application")
+        self.connect(self.exitAct, SIGNAL("triggered()"), 
+                     qApp.closeAllWindows)
+        
+        self.cutAct = QAction("Cu&t", self)
+        self.cutAct.setShortcut("Ctrl+X")
+        self.cutAct.setStatusTip("Cut the current selection's contents to the clipboard")
+        self.connect(self.cutAct, SIGNAL("triggered()"), self.cut)
+
+        self.copyAct = QAction("&Copy", self)
+        self.copyAct.setShortcut("Ctrl+C")
+        self.copyAct.setStatusTip("Copy the current selection's contents to the clipboard")
+        self.connect(self.copyAct, SIGNAL("triggered()"), self.copy)
+
+        self.pasteAct = QAction("&Paste", self)
+        self.pasteAct.setShortcut("Ctrl+V")
+        self.pasteAct.setStatusTip("Paste the clipboard's contents into the current selection")
+        self.connect(self.pasteAct, SIGNAL("triggered()"), self.paste)
+        
+        self.findAct = QAction("&Find", self)
+        self.findAct.setShortcut("Ctrl+F")
+        self.findAct.setStatusTip("Find text occurence in document")
+        self.connect(self.findAct, SIGNAL("triggered()"), self.find)
+        
+        self.findNextAct = QAction("Find next", self)
+        self.findNextAct.setShortcut("F3")
+        self.findNextAct.setStatusTip("Find next text occurence in document")
+        self.connect(self.findNextAct, SIGNAL("triggered()"), self.findNext)
+
+        
+        #self.cutAct.setEnabled(False)
+        #self.copyAct.setEnabled(False)
+        #self.connect(self.textEdit, SIGNAL("copyAvailable(bool)"), self.cutAct.setEnabled)
+        #self.connect(self.textEdit, SIGNAL("copyAvailable(bool)"), self.copyAct.setEnabled)
+        
+    def copyEnabled(self):
+        return self.tab_widget.currentWidget().isCopyAvailable()
+    
+    def cutEnabled(self):
+        return self.copyEnabled()
+        
+        return
+        def ct():
+            print 'ct()'
+            return self.tab_widget.currentPage()
+        self.saveAct = QAction("&Save", self)
+        self.saveAct.setShortcut("Ctrl+S")
+        self.saveAct.setStatusTip("Save the document to disk")
+        self.connect(self.saveAct, SIGNAL("triggered()"), lambda: ct().saveRequest())
+    
+    def createMenus(self):
+        self.fileMenu = self.menuBar().addMenu(self.tr("&File"))
+        self.fileMenu.addAction(self.newAct)
+        self.fileMenu.addAction(self.openAct)
+        self.fileMenu.addAction(self.saveAct)
+        self.fileMenu.addAction(self.saveAsAct)
+        self.fileMenu.addSeparator()
+        self.fileMenu.addAction(self.closeAct)
+        self.fileMenu.addAction(self.exitAct)
+
+        self.editMenu = self.menuBar().addMenu(self.tr("&Edit"))
+        self.editMenu.addAction(self.cutAct)
+        self.editMenu.addAction(self.copyAct)
+        self.editMenu.addAction(self.pasteAct)
+
+        return
+    
+    
+    
+        self.fileMenu = self.menuBar().addMenu(self.tr("&File"))
+        #self.fileMenu.addAction(self.newAct)
+        #self.fileMenu.addAction(self.openAct)
+        self.fileMenu.addAction(self.saveAct)
+        return
+        self.fileMenu.addAction(self.saveAsAct)
+        self.fileMenu.addSeparator()
+        self.fileMenu.addAction(self.closeAct)
+        self.fileMenu.addAction(self.exitAct)
+
+        self.editMenu = self.menuBar().addMenu(self.tr("&Edit"))
+        self.editMenu.addAction(self.cutAct)
+        self.editMenu.addAction(self.copyAct)
+        self.editMenu.addAction(self.pasteAct)
+
+        self.menuBar().addSeparator()
+
+        self.helpMenu = self.menuBar().addMenu(self.tr("&Help"))
+        self.helpMenu.addAction(self.aboutAct)
+        self.helpMenu.addAction(self.aboutQtAct)
+    
+    def test(self):
         self.fileNewAction = QAction("New",Qt.CTRL+Qt.Key_N,self)
         self.fileOpenAction = QAction("Open",Qt.CTRL+Qt.Key_O,self)
         self.fileCloseAction = QAction("Close",Qt.CTRL+Qt.Key_W,self)
@@ -400,7 +569,7 @@ class ApplicationWindow(QMainWindow):
         self.fileExitAction = QAction("Exit",Qt.CTRL+Qt.Key_Q,self)
         self.editUndoAction = QAction("Undo",Qt.CTRL+Qt.Key_Z,self)
         self.editRedoAction = QAction("Redo",Qt.CTRL+Qt.SHIFT+Qt.Key_Z,self)
-        self.editCutAction = QAction("Cut",Qt.CTRL+Qt.Key_X,self)
+        self.editCutAction = QAction("Cut","CTRL+X", self)#Qt.CTRL+Qt.Key_X,self)
         self.editCopyAction = QAction("Copy",Qt.CTRL+Qt.Key_C,self)
         self.editPasteAction = QAction("Paste",Qt.CTRL+Qt.Key_V,self)
         self.editFindAction = QAction("Find",Qt.CTRL+Qt.Key_F,self)
@@ -450,8 +619,8 @@ class ApplicationWindow(QMainWindow):
         self.connect(self.editWinCRLFAction,SIGNAL("activated()"),lambda: ct().convertEols(qs.SC_EOL_CRLF))
         self.connect(self.editMacCFAction,SIGNAL("activated()"),lambda: ct().convertEols(qs.SC_EOL_CR))
         
-        #self.connect(self.tab_widget, SIGNAL("currentChanged(QWidget*)"), self.currentTabChanged)
-    
+        self.connect(self.tab_widget, SIGNAL("currentChanged(QWidget*)"), self.currentTabChanged)
+
     def fileOpen(self):
         filename = QFileDialog.getOpenFileName(QString.null, QString.null, self)
         if filename.isEmpty():
@@ -464,60 +633,29 @@ class ApplicationWindow(QMainWindow):
     
     def newDoc(self, filename=None):
         tab = QSci(self, filename)
-        self.connect(tab, PYSIGNAL('status_message'), self.statusMessage)
+        self.connect(tab, SIGNAL('status_message'), self.statusMessage)
         if not filename:
             filename = 'Untitled.txt'
         self.tab_widget.addTab(tab, os.path.basename(filename))
-        self.tab_widget.showPage(tab)
-        tab.setFocus()
+        self.tab_widget.setCurrentWidget(tab)
     
     def statusMessage(self, text, t=2000):
-        self.statusBar().message(text, t)
+        #print text, t
+        self.statusBar().showMessage(text, t)
     
     def currentTabChanged (self, tab):
         tab.setFocus()
         self.statusMessage(tab.filename, 1000)
     
-    def closeCurrentTab(self):
-        print 'closeCurrentTab'
+    def closeCurrentDoc(self):
         if self.tab_widget.count()==1: return
         
-        tab = self.tab_widget.currentPage()
+        tab = self.tab_widget.currentWidget()
         if tab.close():
-            self.tab_widget.removePage(tab)
+            self.tab_widget.removeTab(self.tab_widget.currentIndex())
             del tab
             return True
         return False
-    
-    def filePrint(self):
-        #TODO: need change
-        Margin = 10
-        pageNo = 1
-        
-        if self.printer.setup(self):
-            self.statusBar().message('Printing...')
-            
-            p = QPainter()
-            p.begin(self.printer)
-            p.setFont(self.e.font())
-            yPos = 0
-            fm = p.fontMetrics()
-            metrics = QPaintDeviceMetrics(self.printer)
-            
-            for i in range(self.e.numLines):
-                if Margin + yPos > metrics.height() - Margin:
-                    pageNo = pageNo + 1
-                    self.statusBar().message('Printing (page %d)...' % (pageNo))
-                    self.printer.newPage()
-                    yPos = 0
-                p.drawText(Margin,Margin + yPos,metrics.width(), fm.lineSpacing(),
-                                Qt.ExpandTabs | Qt.DontClip, self.e.textLine(i))
-                yPos = yPos + fm.lineSpacing()
-            
-            p.end()
-            self.statusBar().message('Printing completed', 2000)
-        else:
-            self.statusBar().message('Printing aborted', 2000)
     
     def closeEvent(self, ce):
         if self.fileExit():
@@ -525,18 +663,15 @@ class ApplicationWindow(QMainWindow):
         ce.ignore()
     
     def fileExit(self):
-        tab = self.tab_widget.currentPage()
+        tab = self.tab_widget.currentWidget()
         while tab:
             if not tab.close():
                 return False
-            self.tab_widget.removePage(tab)
+            self.tab_widget.removeTab(self.tab_widget.currentIndex())
             del tab
-            tab = self.tab_widget.currentPage()
+            tab = self.tab_widget.currentWidget()
         
-        settings = QSettings()
-        settings.setPath('popeksoft', APPNAME)
-        settings.writeEntry('/geometry/width', self.width())
-        settings.writeEntry('/geometry/height', self.height())
+        self.writeSettings()
         
         qApp.quit()
 
@@ -548,10 +683,10 @@ if __name__=="__main__":
     
     app = QApplication(sys.argv)
     main_window = ApplicationWindow()
-    app.setMainWidget(main_window)
-    appico = QPixmap()
-    appico.loadFromData(icondata, 'PNG')
-    main_window.setIcon(appico)
+    pixmap = QPixmap()
+    pixmap.loadFromData(icondata, 'PNG')
+    appico = QIcon(pixmap)
+    app.setWindowIcon(appico)
     
     files = sys.argv[1:]
     if files:
@@ -563,4 +698,4 @@ if __name__=="__main__":
     
     main_window.show()
     
-    app.exec_loop()
+    sys.exit(app.exec_())
