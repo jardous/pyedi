@@ -29,54 +29,44 @@
 # #####################################################################
 
 import sys, string, os
+
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import PyQt4.Qsci as qtext
 from PyQt4.Qsci import *
 from PyQt4.Qsci import QsciScintillaBase as qs
 
-from pprint import pprint
-
 __author__ = u'jiri.popek@gmail.com (Jiří Popek)'
 
 FONT_SIZE = 10
-eolM = {0:'\r\n', 1:'\r', 2:'\n'}
+EOL_UNIX, EOL_WIN, EOL_MAC = 2, 0, 1
+eolM = {EOL_WIN:'\r\n', EOL_MAC:'\r', EOL_UNIX:'\n'}
 
-VERSION = '0.0.1'
+VERSION = '0.1.0'
 APPNAME = 'pyedi'
 
 INDENT_WIDTH = 4
+
+DEFAULT_FILENAME = 'Untitled.txt'
 
 main_window = None
 
 class QSci(QsciScintilla):
     
+    filename = None
+    
     def __init__(self, parent, filename):
         QsciScintilla.__init__(self, parent)
-        self.filename = filename
         self.SendScintilla(qs.SCI_SETHSCROLLBAR)
         self.dnd = False
         
         if filename:
-            self.loadDocument(filename)
-        
-        #self.SendScintilla(qs.SCI_ASSIGNCMDKEY, qs.SCK_TAB + (qs.SCMOD_CTRL<<16), qs.SCI_BACKTAB)
-
-        cmds = self.standardCommands().commands()
-        pprint([(str(x.key()), str(x.description())) for x in cmds])
-        self.connect(self, SIGNAL("modificationChanged(bool)"), self.modificationChanged)
+            if self.loadDocument(filename):
+                self.filename = filename
     
-    def modificationChanged(self, val):
-        tw = qApp.activeWindow().tab_widget
-        ct = tw.currentIndex()
-        
-        if not self.filename: return
-        
-        if val:
-            tw.setTabText(ct, '* ' + os.path.basename(self.filename))
-        else:
-            tw.setTabText(ct, os.path.basename(self.filename))
-        
+    def text(self):
+        return QsciScintilla.text(self).toUtf8()
+    
     def eventFilter(self, object, event):
         used = 0
         if event.type() == QEvent.DragEnter:
@@ -92,16 +82,21 @@ class QSci(QsciScintilla):
         return used
     
     def loadDocument(self, filename):
+        file = QFile(filename)
+        
+        if not file.open(QFile.ReadOnly | QFile.Text):
+            QMessageBox.warning(self, APPNAME, "Cannot read file %s:\n%s." %(filename, file.errorString()))
+            return False
+        
         self.filename = filename
-        try:
-            f = open(filename, 'r')
-        except:
-            return
-        self.setText(f.read())
-        f.close()
+        instr = QTextStream(file)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        self.setText(instr.readAll())
+        QApplication.restoreOverrideCursor()
         
         self.setModified(False)
         self.setAutoLexer()
+        return True
 
     def lineDuplicate(self):
         self.SendScintilla(qs.SCI_LINEDUPLICATE)
@@ -186,18 +181,18 @@ class QSci(QsciScintilla):
         self.setBackspaceUnindents(True)
         self.setMargins()
     
-    def checkSyntax(self):
+    def syntaxCheck(self):
         import re
         eline = None
         ecolumn = 0
         edescr = ''
-        doc = str(self.text().toUtf8())
         
         if isinstance(self.lexer(), QsciLexerPython):
             import compiler
             try:
-                compiler.parse(doc)
+                compiler.parse(str(self.text()))
             except Exception, detail:
+                print detail
                 match = re.match('^(.+) \(line (\d+)\)$', str(detail))
                 if match:
                     edescr, eline = match.groups()
@@ -206,7 +201,7 @@ class QSci(QsciScintilla):
         elif isinstance(self.lexer(), QsciLexerHTML):
             from kid import compiler #TODO: check kid installed
             from cStringIO import StringIO
-            t = StringIO(doc)
+            t = StringIO(str(self.text()))
             
             try:
                 codeobject = compiler.compile(source=t)
@@ -224,9 +219,9 @@ class QSci(QsciScintilla):
             self.setSelection(eline, ecolumn, eline, self.lineLength(eline)-len(eolM[self.eolMode()]))
             self.ensureLineVisible(eline)
             self.ensureCursorVisible()
-            self.emit(SIGNAL('status_message'), (edescr, 2000))
+            self.emit(SIGNAL('status_message'), edescr, 2000)
         else:
-            self.emit(SIGNAL('status_message'), ('Syntax ok', 2000))
+            self.emit(SIGNAL('status_message'), 'Syntax ok', 2000)
     
     def convertEols(self, param):
         self.SendScintilla(qs.SCI_CONVERTEOLS, param)
@@ -241,56 +236,87 @@ class QSci(QsciScintilla):
             return
         
         commentStr = lex.commentString
-        bCommentStr = lex.blockCommentStrings
-        
+        selection = self.getSelection()
         self.beginUndoAction()
         if not self.hasSelectedText():
             line, index = self.getCursorPosition()
-            if commentStr:
-                self.insertAt(commentStr, line, 0)
-            else:
-                self.insertAt(bCommentStr[1], line+1, 0)
-                self.insertAt(bCommentStr[0], line, 0)
+            self.insertAt(commentStr, line, 0)
+            lines_to_comment.append(line)
         else:
-            # get the selection boundaries
+            lineFrom, indexFrom, lineTo, indexTo = self.getSelection()
+            
+            if indexTo == 0:
+                endLine = lineTo - 1
+            else:
+                endLine = lineTo
+            
+            lines_to_comment = range(lineFrom, lineTo+1)
+        
+        newsel = list(selection)
+        if commentStr:
+            for line in lines_to_comment:
+                self.insertAt(commentStr, line, 0)
+        
+            newsel[1] += len(commentStr)
+            newsel[3] += len(commentStr)
+        
+        self.setSelection(*newsel)
+        self.endUndoAction()
+    
+    def uncomment(self):
+        """ uncomment selected lines """
+        lex = self.lexer()
+        if not lex:
+            return
+        
+        commentStr = lex.commentString
+        bCommentStr = lex.blockCommentStrings
+        
+        lines_to_uncomment = []
+        selection = self.getSelection()
+        self.beginUndoAction()
+        if not self.hasSelectedText():
+            line, index = self.getCursorPosition()
+            lines_to_uncomment.append(line)
+        else:
             lineFrom, indexFrom, lineTo, indexTo = self.getSelection()
             if indexTo == 0:
                 endLine = lineTo - 1
             else:
                 endLine = lineTo
             
-            ll = self.lineLength(endLine)
-            if bCommentStr:
-                self.insertAt(bCommentStr[1], endLine, ll)
-                self.insertAt(bCommentStr[0], lineFrom, 0)
-            elif commentStr:
-                # iterate over the lines
-                for line in range(lineFrom, endLine+1):
-                    self.insertAt(commentStr, line, 0)
-            
-            # change the selection accordingly
-            self.setSelection(lineFrom, 0, endLine+1, 0)
+            lines_to_uncomment = range(lineFrom, lineTo+1)
         
+        newsel = list(selection)
+        if commentStr:
+            for line in lines_to_uncomment:
+                self.setSelection(line, 0, line, len(commentStr))
+                if self.selectedText().toUtf8() == commentStr:
+                    self.removeSelectedText()
+            
+            newsel[1] -= len(commentStr)
+            newsel[3] -= len(commentStr)
+        
+        self.setSelection(*newsel)
         self.endUndoAction()
     
     def marginsWidth(self):
         return self.marginWidth(0) + self.marginWidth(1) + self.marginWidth(2)
     
-    def contextMenuEvent(self, evt):
-        evt.accept()
-        if evt.x() > self.marginsWidth():
-            self.menu.popup(evt.globalPos())
+#    def contextMenuEvent(self, evt):
+#        evt.accept()
+#        if evt.x() > self.marginsWidth():
+#            self.menu.popup(evt.globalPos())
     
     def find(self):
-        """ find next occurence of text starting from current position """
+        """find next occurence of text starting from current position"""
         dt = self.selectedText()
-        x = dt#[:dt.find(eolM[self.eolMode()])]
         line, index = self.getCursorPosition()
-        text, res = QInputDialog.getText(APPNAME + " - Find text", "Enter text or re to find",
-                                QLineEdit.Normal, x)
+        text, res = QInputDialog.getText(self, APPNAME + " - Find text", "Enter text or re to find",
+                                QLineEdit.Normal, dt)
         if res:
             if not self.findFirst(text, 1, 0, line, index):
-                self.emit(SIGNAL('status_message'), (text + ' not found', 2000))
+                self.emit(SIGNAL('status_message'), text + ' not found', 2000)
     
     def saveRequest(self):
         if not self.filename:
@@ -300,21 +326,25 @@ class QSci(QsciScintilla):
             self.save()
         else:
             self.emit(SIGNAL('status_message'), '%s not modified' % (self.filename or ''), 2000)
-            self.save()  # isModified not reliable - WHY?
     
     def save(self):
-        try:
-            f = open(self.filename, 'w+')
-        except:
-            self.emit(SIGNAL('status_message'), 'Can not write to %s' % (self.filename or ''), 2000)
-            return
+        file = QFile(self.filename)
+        if not file.open(QFile.WriteOnly | QFile.Text):
+            QMessageBox.warning(self, APPNAME, "Cannot write file %s:\n%s." % (fileName, file.errorString()))
+            return False
         
-        f.write(str(self.text().toUtf8()))
-        f.close()
+        outstr = QTextStream(file)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        outstr << str(self.text())
+        QApplication.restoreOverrideCursor()
         
-        self.setModified(False)
-        self.setTabLabel()
+        if self.isModified():
+            self.setModified(False)
+        else:
+            self.modificationChanged()
+        
         self.emit(SIGNAL('status_message'), 'File %s saved' % (self.filename or ''), 2000)
+        return True
     
     def saveAs(self):
         fn = QFileDialog.getSaveFileName(self, 'Save As', self.filename or '')
@@ -331,9 +361,10 @@ class QSci(QsciScintilla):
         if not self.isModified():
             return True
         
-        res = QMessageBox.question(self, APPNAME + ' - save', 'The document\n\n' + (self.filename or 'Untitled.txt') +
-            '\n\nhas been changed since the last save.\nDo you want to save it?',
-            'Save', 'Cancel', 'Leave Anyway', 0, 1)
+        res = QMessageBox.question(self, APPNAME + ' - save', 
+                    'The document\n\n' + (self.filename or DEFAULT_FILENAME) +
+                    '\n\nhas been changed since the last save.\nDo you want to save it?',
+                    'Save', 'Cancel', 'Leave Anyway', 0, 1)
         
         if res == 0:
             if self.filename:
@@ -347,7 +378,7 @@ class QSci(QsciScintilla):
     
     def dragEnterEvent(self, event):
         mime = event.mimeData()
-        self.dnd = mime.hasUrls()#QUriDrag.canDecode(event)
+        self.dnd = mime.hasUrls()
         if self.dnd:
             event.accept()
         else:
@@ -370,8 +401,10 @@ class QSci(QsciScintilla):
         if mime.hasUrls():
             files = mime.urls()
             event.accept()
+
             for fn in files:
                 fn = fn.toLocalFile()
+                if fn.isEmpty(): continue
                 if not QFileInfo(fn).isDir():
                     main_window.newDoc(unicode(fn))
                 else:
@@ -385,25 +418,16 @@ class QSci(QsciScintilla):
 
 class ApplicationWindow(QMainWindow):
     def __init__(self, caption=APPNAME):
-        QMainWindow.__init__(self)#, None, caption)#, Qt.WDestructiveClose)
-        self.printer = QPrinter()
+        QMainWindow.__init__(self)
         
         self.tab_widget = QTabWidget(self)
         self.setCentralWidget(self.tab_widget)
-
-        
-
-       
         
         self.createActions()
         self.createMenus()
         
         self.readSettings()
-#        self.menu = QMenuBar(self)
-#        self.menu.setEnabled(1)
-#        self.menuFile = QMenu(self)
-#        self.editMenu = QMenu(self)
-#        self.toolsMenu = QMenu(self)
+        
         self.statusMessage('Ready', 2000)
     
     def readSettings(self):
@@ -429,16 +453,34 @@ class ApplicationWindow(QMainWindow):
         self.tab_widget.currentWidget().copy()
     def paste(self):
         self.tab_widget.currentWidget().paste()
+    def comment(self):
+        self.tab_widget.currentWidget().comment()
+    def uncomment(self):
+        self.tab_widget.currentWidget().uncomment()
     def find(self):
         self.tab_widget.currentWidget().find()
     def findNext(self):
         self.tab_widget.currentWidget().findNext()
+    def showEOLs(self):
+        w = self.tab_widget.currentWidget()
+        w.setEolVisibility(not w.eolVisibility())
+    def syntaxCheck(self):
+        self.tab_widget.currentWidget().syntaxCheck()
+    def unixLF(self):
+        self.tab_widget.currentWidget().convertEols(qs.SC_EOL_LF)
+    def winCRLF(self):
+        self.tab_widget.currentWidget().convertEols(qs.SC_EOL_CRLF)
+    def macCR(self):
+        self.tab_widget.currentWidget().convertEols(qs.SC_EOL_CR)
+    def copyEnabled(self):
+        return self.tab_widget.currentWidget().isCopyAvailable()
+    def cutEnabled(self):
+        return self.copyEnabled()
+    def unindent(self):
+        w = self.tab_widget.currentWidget()
+        w.unindent(w.getCursorPosition()[0])
     
     def createActions(self):
-        def ct():
-            print 'ct()'
-            return self.tab_widget.currentWidget()
-        
         self.newAct = QAction("&New", self)
         self.newAct.setShortcut("Ctrl+N")
         self.newAct.setStatusTip("Create a new file")
@@ -466,8 +508,7 @@ class ApplicationWindow(QMainWindow):
         self.exitAct = QAction("E&xit", self)
         self.exitAct.setShortcut("Ctrl+Q")
         self.exitAct.setStatusTip("Exit the application")
-        self.connect(self.exitAct, SIGNAL("triggered()"), 
-                     qApp.closeAllWindows)
+        self.connect(self.exitAct, SIGNAL("triggered()"), qApp.closeAllWindows)
         
         self.cutAct = QAction("Cu&t", self)
         self.cutAct.setShortcut("Ctrl+X")
@@ -484,6 +525,21 @@ class ApplicationWindow(QMainWindow):
         self.pasteAct.setStatusTip("Paste the clipboard's contents into the current selection")
         self.connect(self.pasteAct, SIGNAL("triggered()"), self.paste)
         
+        self.commentAct = QAction("&Comment", self)
+        self.commentAct.setShortcut("Ctrl+E")
+        self.commentAct.setStatusTip("Comment out selected lines")
+        self.connect(self.commentAct, SIGNAL("triggered()"), self.comment)
+        
+        self.uncommentAct = QAction("&Uncomment", self)
+        self.uncommentAct.setShortcut("Ctrl+Shift+E")
+        self.uncommentAct.setStatusTip("Uncomment selected lines")
+        self.connect(self.uncommentAct, SIGNAL("triggered()"), self.uncomment)
+        
+        self.unindentAct = QAction("&Unindent", self)
+        self.unindentAct.setShortcut("Shift+TAB")
+        self.unindentAct.setStatusTip("Unindent selected lines")
+        self.connect(self.unindentAct, SIGNAL("triggered()"), self.unindent)
+        
         self.findAct = QAction("&Find", self)
         self.findAct.setShortcut("Ctrl+F")
         self.findAct.setStatusTip("Find text occurence in document")
@@ -494,26 +550,31 @@ class ApplicationWindow(QMainWindow):
         self.findNextAct.setStatusTip("Find next text occurence in document")
         self.connect(self.findNextAct, SIGNAL("triggered()"), self.findNext)
 
+        self.syntaxCheckAct = QAction("Check syntax", self)
+        self.syntaxCheckAct.setShortcut("Alt+X")
+        self.syntaxCheckAct.setStatusTip("Perform syntax check")
+        self.connect(self.syntaxCheckAct, SIGNAL("triggered()"), self.syntaxCheck)
         
-        #self.cutAct.setEnabled(False)
-        #self.copyAct.setEnabled(False)
-        #self.connect(self.textEdit, SIGNAL("copyAvailable(bool)"), self.cutAct.setEnabled)
-        #self.connect(self.textEdit, SIGNAL("copyAvailable(bool)"), self.copyAct.setEnabled)
+        self.showEOLsAct = QAction("Show EOLs", self)
+        #self.showEOLsAct.setShortcut("Alt+X")
+        self.showEOLsAct.setStatusTip("Show end of line characters")
+        self.connect(self.showEOLsAct, SIGNAL("triggered()"), self.showEOLs)
+        self.showEOLsAct.setCheckable(True)
         
-    def copyEnabled(self):
-        return self.tab_widget.currentWidget().isCopyAvailable()
-    
-    def cutEnabled(self):
-        return self.copyEnabled()
+        self.unixLFAct = QAction("Unix LF", self)
+        self.unixLFAct.setStatusTip("Change line ends to Unix LF")
+        self.connect(self.unixLFAct, SIGNAL("triggered()"), self.unixLF)
+        self.winCRLFAct = QAction("Windows CRLF", self)
+        self.winCRLFAct.setStatusTip("Change line ends to Windows CRLF")
+        self.connect(self.winCRLFAct, SIGNAL("triggered()"), self.winCRLF)
+        self.macCRAct = QAction("Macintosh CR", self)
+        self.macCRAct.setStatusTip("Change line ends to Macintosh CR")
+        self.connect(self.macCRAct, SIGNAL("triggered()"), self.macCR)
         
-        return
-        def ct():
-            print 'ct()'
-            return self.tab_widget.currentPage()
-        self.saveAct = QAction("&Save", self)
-        self.saveAct.setShortcut("Ctrl+S")
-        self.saveAct.setStatusTip("Save the document to disk")
-        self.connect(self.saveAct, SIGNAL("triggered()"), lambda: ct().saveRequest())
+        self.cutAct.setEnabled(False)
+        self.copyAct.setEnabled(False)
+        
+        self.connect(self.tab_widget, SIGNAL("currentChanged(int)"), self.currentTabChanged)
     
     def createMenus(self):
         self.fileMenu = self.menuBar().addMenu(self.tr("&File"))
@@ -529,94 +590,23 @@ class ApplicationWindow(QMainWindow):
         self.editMenu.addAction(self.cutAct)
         self.editMenu.addAction(self.copyAct)
         self.editMenu.addAction(self.pasteAct)
-
-        return
+        self.editMenu.addSeparator()
+        self.editMenu.addAction(self.commentAct)
+        self.editMenu.addAction(self.uncommentAct)
+        self.editMenu.addSeparator()
+        self.editMenu.addAction(self.findAct)
+        self.editMenu.addAction(self.findNextAct)
+        self.editMenu.addSeparator()
+        self.editMenu.addAction(self.showEOLsAct)
+        self.editMenu.addAction(self.unindentAct)
+        
+        self.toolsMenu = self.menuBar().addMenu(self.tr("&Tools"))
+        self.toolsMenu.addAction(self.syntaxCheckAct)
+        self.toolsMenu.addSeparator()
+        self.toolsMenu.addAction(self.unixLFAct)
+        self.toolsMenu.addAction(self.winCRLFAct)
+        self.toolsMenu.addAction(self.macCRAct)
     
-    
-    
-        self.fileMenu = self.menuBar().addMenu(self.tr("&File"))
-        #self.fileMenu.addAction(self.newAct)
-        #self.fileMenu.addAction(self.openAct)
-        self.fileMenu.addAction(self.saveAct)
-        return
-        self.fileMenu.addAction(self.saveAsAct)
-        self.fileMenu.addSeparator()
-        self.fileMenu.addAction(self.closeAct)
-        self.fileMenu.addAction(self.exitAct)
-
-        self.editMenu = self.menuBar().addMenu(self.tr("&Edit"))
-        self.editMenu.addAction(self.cutAct)
-        self.editMenu.addAction(self.copyAct)
-        self.editMenu.addAction(self.pasteAct)
-
-        self.menuBar().addSeparator()
-
-        self.helpMenu = self.menuBar().addMenu(self.tr("&Help"))
-        self.helpMenu.addAction(self.aboutAct)
-        self.helpMenu.addAction(self.aboutQtAct)
-    
-    def test(self):
-        self.fileNewAction = QAction("New",Qt.CTRL+Qt.Key_N,self)
-        self.fileOpenAction = QAction("Open",Qt.CTRL+Qt.Key_O,self)
-        self.fileCloseAction = QAction("Close",Qt.CTRL+Qt.Key_W,self)
-        self.fileSaveAction = QAction("Save",Qt.CTRL+Qt.Key_S,self)
-        self.fileSaveAsAction = QAction("Save As",Qt.CTRL+Qt.SHIFT+Qt.Key_S,self)
-        self.filePrintAction = QAction("Print",Qt.CTRL+Qt.Key_P,self)
-        self.fileExitAction = QAction("Exit",Qt.CTRL+Qt.Key_Q,self)
-        self.editUndoAction = QAction("Undo",Qt.CTRL+Qt.Key_Z,self)
-        self.editRedoAction = QAction("Redo",Qt.CTRL+Qt.SHIFT+Qt.Key_Z,self)
-        self.editCutAction = QAction("Cut","CTRL+X", self)#Qt.CTRL+Qt.Key_X,self)
-        self.editCopyAction = QAction("Copy",Qt.CTRL+Qt.Key_C,self)
-        self.editPasteAction = QAction("Paste",Qt.CTRL+Qt.Key_V,self)
-        self.editFindAction = QAction("Find",Qt.CTRL+Qt.Key_F,self)
-        self.editFindNextAction = QAction("Find next",Qt.Key_F3,self)
-        
-        self.editDuplLineAction = QAction("Duplicate line",Qt.CTRL+Qt.Key_D,self)
-        self.editCommentAction = QAction("Comment",Qt.CTRL+Qt.Key_E,self)
-        self.editUncommentAction = QAction("Unomment",Qt.CTRL+Qt.SHIFT+Qt.Key_E,self)
-        self.editUppercaseAction = QAction("UPPERCASE",Qt.CTRL+Qt.Key_U,self)
-        self.editLowercaseAction = QAction("lowercase",Qt.CTRL+Qt.SHIFT+Qt.Key_U,self)
-        
-        self.editSelAllAction = QAction('Select all',Qt.CTRL+Qt.Key_A,self)
-        
-        self.editCheckSyntaxAction = QAction("Check syntax",Qt.ALT+Qt.Key_X,self)
-        
-        self.editShowEOLsAction = QAction("show EOLs",Qt.ALT+Qt.Key_Z,self)
-        self.editUnixLFAction = QAction("Unix LF",Qt.ALT+Qt.Key_C,self)
-        self.editWinCRLFAction = QAction("Win CRLF",Qt.ALT+Qt.Key_V,self)
-        self.editMacCFAction = QAction("MAC CR",Qt.ALT+Qt.Key_B,self)
-         
-        self.connect(self.fileNewAction,SIGNAL("activated()"),self.newDoc)
-        self.connect(self.fileOpenAction,SIGNAL("activated()"),self.fileOpen)
-        self.connect(self.fileSaveAction,SIGNAL("activated()"),lambda: ct().saveRequest())
-        self.connect(self.fileSaveAsAction,SIGNAL("activated()"),lambda: ct().saveAs())
-        self.connect(self.filePrintAction,SIGNAL("activated()"),self.filePrint)
-        self.connect(self.fileExitAction,SIGNAL("activated()"),self.fileExit)
-        self.connect(self.editUndoAction,SIGNAL("activated()"),lambda: ct().undo())
-        self.connect(self.editRedoAction,SIGNAL("activated()"),lambda: ct().redo())
-        self.connect(self.editCutAction,SIGNAL("activated()"),lambda: ct().cut())
-        self.connect(self.editCopyAction,SIGNAL("activated()"),lambda: ct().copy())
-        self.connect(self.editPasteAction,SIGNAL("activated()"),lambda: ct().paste())
-        self.connect(self.editFindAction,SIGNAL("activated()"),lambda: ct().find())
-        self.connect(self.editFindNextAction,SIGNAL("activated()"),lambda: ct().findNext())
-        
-        self.connect(self.editDuplLineAction,SIGNAL("activated()"),lambda: ct().lineDuplicate())
-        self.connect(self.editCommentAction,SIGNAL("activated()"),lambda: ct().comment())
-        self.connect(self.editUncommentAction,SIGNAL("activated()"),lambda: ct().uncomment())
-        self.connect(self.editUppercaseAction,SIGNAL("activated()"),lambda: ct().uppercase())
-        self.connect(self.editLowercaseAction,SIGNAL("activated()"),lambda: ct().lowercase())
-        
-        self.connect(self.editSelAllAction,SIGNAL("activated()"),lambda: ct().selectAll())
-        
-        self.connect(self.editCheckSyntaxAction,SIGNAL("activated()"),lambda: ct().checkSyntax())
-        
-        self.connect(self.editShowEOLsAction,SIGNAL("activated()"),lambda: ct().setEolVisibility(not ct().eolVisibility()))
-        self.connect(self.editUnixLFAction,SIGNAL("activated()"),lambda: ct().convertEols(qs.SC_EOL_LF))
-        self.connect(self.editWinCRLFAction,SIGNAL("activated()"),lambda: ct().convertEols(qs.SC_EOL_CRLF))
-        self.connect(self.editMacCFAction,SIGNAL("activated()"),lambda: ct().convertEols(qs.SC_EOL_CR))
-        
-        self.connect(self.tab_widget, SIGNAL("currentChanged(QWidget*)"), self.currentTabChanged)
-
     def fileOpen(self):
         filename = QFileDialog.getOpenFileName(QString.null, QString.null, self)
         if filename.isEmpty():
@@ -627,29 +617,65 @@ class ApplicationWindow(QMainWindow):
         self.newDoc(filename)
         self.statusBar().message('Loaded document %s' % filename, 2000)
     
+    def setCurrentTabLabel(self, mod):
+        index = self.tab_widget.currentIndex()
+        w = self.tab_widget.widget(index)
+        filename = w.filename or DEFAULT_FILENAME
+        
+        if w.isModified():
+            self.tab_widget.setTabText(index, '* ' + os.path.basename(filename))
+        else:
+            self.tab_widget.setTabText(index, os.path.basename(filename))
+        
+        self.tab_widget.setTabToolTip(index, filename)
+        self.saveAct.setEnabled(mod)
+    
     def newDoc(self, filename=None):
         tab = QSci(self, filename)
         self.connect(tab, SIGNAL('status_message'), self.statusMessage)
-        if not filename:
-            filename = 'Untitled.txt'
-        self.tab_widget.addTab(tab, os.path.basename(filename))
+        
+        self.connect(tab, SIGNAL("modificationChanged(bool)"), self.setCurrentTabLabel)
+        self.connect(tab, SIGNAL("copyAvailable(bool)"), self.cutAct.setEnabled)
+        self.connect(tab, SIGNAL("copyAvailable(bool)"), self.copyAct.setEnabled)
+        
+        filename = tab.filename
+        self.tab_widget.addTab(tab, os.path.basename(filename or DEFAULT_FILENAME))
         self.tab_widget.setCurrentWidget(tab)
+        self.tab_widget.setTabToolTip(self.tab_widget.currentIndex(), filename or 'New document')
+        tab.setFocus()
+        
+        self.updateMenus()
     
+    def updateMenus(self):
+        w = self.tab_widget.currentWidget()
+        self.saveAct.setEnabled(w.isModified())
+        
+        hasSelection = w.hasSelectedText()
+        self.cutAct.setEnabled(hasSelection)
+        self.copyAct.setEnabled(hasSelection)
+        
+        self.showEOLsAct.setChecked(w.eolVisibility())
+        
+        self.unixLFAct.setEnabled(w.eolMode() != EOL_UNIX)
+        self.winCRLFAct.setEnabled(w.eolMode() != EOL_WIN)
+        self.macCRAct.setEnabled(w.eolMode() != EOL_MAC)
+        
     def statusMessage(self, text, t=2000):
-        #print text, t
         self.statusBar().showMessage(text, t)
     
-    def currentTabChanged (self, tab):
-        tab.setFocus()
-        self.statusMessage(tab.filename, 1000)
+    def currentTabChanged(self, index):
+        w = self.tab_widget.widget(index)
+        w.setFocus()
+        self.updateMenus()
+        self.statusMessage(w.filename or DEFAULT_FILENAME, 1000)
     
     def closeCurrentDoc(self):
         if self.tab_widget.count()==1: return
         
-        tab = self.tab_widget.currentWidget()
-        if tab.close():
+        w = self.tab_widget.currentWidget()
+        if w.close():
             self.tab_widget.removeTab(self.tab_widget.currentIndex())
-            del tab
+            del w
             return True
         return False
     
