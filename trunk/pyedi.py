@@ -32,7 +32,6 @@ import sys, string, os
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-import PyQt4.Qsci as qtext
 from PyQt4.Qsci import *
 from PyQt4.Qsci import QsciScintillaBase as qs
 
@@ -222,6 +221,10 @@ class QSci(QsciScintilla):
             self.emit(SIGNAL('status_message'), edescr, 2000)
         else:
             self.emit(SIGNAL('status_message'), 'Syntax ok', 2000)
+    
+    def syntaxCheckAvailable(self):
+        lex = self.lexer()
+        return (isinstance(lex, QsciLexerPython) or isinstance(lex, QsciLexerHTML))
     
     def convertEols(self, param):
         self.SendScintilla(qs.SCI_CONVERTEOLS, param)
@@ -476,6 +479,8 @@ class ApplicationWindow(QMainWindow):
         return self.tab_widget.currentWidget().isCopyAvailable()
     def cutEnabled(self):
         return self.copyEnabled()
+    def syntaxCheckAvailable(self):
+        return self.tab_widget.currentWidget().checkSyntaxAvailable()
     def unindent(self):
         w = self.tab_widget.currentWidget()
         w.unindent(w.getCursorPosition()[0])
@@ -659,6 +664,8 @@ class ApplicationWindow(QMainWindow):
         self.unixLFAct.setEnabled(w.eolMode() != EOL_UNIX)
         self.winCRLFAct.setEnabled(w.eolMode() != EOL_WIN)
         self.macCRAct.setEnabled(w.eolMode() != EOL_MAC)
+        
+        self.syntaxCheckAct.setEnabled(w.syntaxCheckAvailable())
         
     def statusMessage(self, text, t=2000):
         self.statusBar().showMessage(text, t)
