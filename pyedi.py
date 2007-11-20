@@ -62,9 +62,8 @@ class QSci(QsciScintilla):
         if filename:
             if self.loadDocument(filename):
                 self.filename = filename
-    
-    def text(self):
-        return QsciScintilla.text(self).toUtf8()
+        
+        self.setUtf8(True)
     
     def eventFilter(self, object, event):
         used = 0
@@ -89,6 +88,7 @@ class QSci(QsciScintilla):
         
         self.filename = filename
         instr = QTextStream(file)
+        self.setUtf8(True)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         self.setText(instr.readAll())
         QApplication.restoreOverrideCursor()
@@ -166,7 +166,6 @@ class QSci(QsciScintilla):
             self.SendScintilla(qs.SCI_STYLESETFONT, style, "monospace")
             self.SendScintilla(qs.SCI_STYLESETSIZE, style, FONT_SIZE)
         
-        self.setUtf8(1)
         self.setBraceMatching(QsciScintilla.SloppyBraceMatch)
         self.setAutoIndent(True)
         self.setIndentationWidth(INDENT_WIDTH)
@@ -185,13 +184,13 @@ class QSci(QsciScintilla):
         eline = None
         ecolumn = 0
         edescr = ''
+        doc = str(self.text().toUtf8())
         
         if isinstance(self.lexer(), QsciLexerPython):
             import compiler
             try:
-                compiler.parse(str(self.text()))
+                compiler.parse(doc)
             except Exception, detail:
-                print detail
                 match = re.match('^(.+) \(line (\d+)\)$', str(detail))
                 if match:
                     edescr, eline = match.groups()
@@ -200,7 +199,7 @@ class QSci(QsciScintilla):
         elif isinstance(self.lexer(), QsciLexerHTML):
             from kid import compiler #TODO: check kid installed
             from cStringIO import StringIO
-            t = StringIO(str(self.text()))
+            t = StringIO(doc)
             
             try:
                 codeobject = compiler.compile(source=t)
@@ -338,7 +337,7 @@ class QSci(QsciScintilla):
         
         outstr = QTextStream(file)
         QApplication.setOverrideCursor(Qt.WaitCursor)
-        outstr << str(self.text())
+        outstr << self.text()
         QApplication.restoreOverrideCursor()
         
         if self.isModified():
@@ -637,8 +636,9 @@ class ApplicationWindow(QMainWindow):
     
     def newDoc(self, filename=None):
         tab = QSci(self, filename)
-        self.connect(tab, SIGNAL('status_message'), self.statusMessage)
+        tab.setUtf8(True)
         
+        self.connect(tab, SIGNAL('status_message'), self.statusMessage)
         self.connect(tab, SIGNAL("modificationChanged(bool)"), self.setCurrentTabLabel)
         self.connect(tab, SIGNAL("copyAvailable(bool)"), self.cutAct.setEnabled)
         self.connect(tab, SIGNAL("copyAvailable(bool)"), self.copyAct.setEnabled)
