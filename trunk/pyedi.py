@@ -653,7 +653,7 @@ class ApplicationWindow(QMainWindow):
     
     def updateMenus(self):
         w = self.tab_widget.currentWidget()
-        self.saveAct.setEnabled(w.isModified())
+        #self.saveAct.setEnabled(w.isModified())
         
         hasSelection = w.hasSelectedText()
         self.cutAct.setEnabled(hasSelection)
