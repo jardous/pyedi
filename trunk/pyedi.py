@@ -442,13 +442,17 @@ class ApplicationWindow(QMainWindow):
     
     def writeSettings(self):
         settings = QSettings('popeksoft', APPNAME)
-        settings.setValue("pos", QVariant(self.pos()))
-        settings.setValue("size", QVariant(self.size()))
+        settings.setValue("/geometry/pos", QVariant(self.pos()))
+        settings.setValue("/geometry/size", QVariant(self.size()))
     
     def save(self):
         self.tab_widget.currentWidget().saveRequest()
     def saveAs(self):
         self.tab_widget.currentWidget().saveAs()
+    def undo(self):
+        self.tab_widget.currentWidget().undo()
+    def redo(self):
+        self.tab_widget.currentWidget().redo()
     def cut(self):
         self.tab_widget.currentWidget().cut()
     def copy(self):
@@ -513,6 +517,16 @@ class ApplicationWindow(QMainWindow):
         self.exitAct.setShortcut("Ctrl+Q")
         self.exitAct.setStatusTip("Exit the application")
         self.connect(self.exitAct, SIGNAL("triggered()"), qApp.closeAllWindows)
+        
+        self.undoAct = QAction("Undo", self)
+        self.undoAct.setShortcut("Ctrl+Z")
+        self.undoAct.setStatusTip("Undo")
+        self.connect(self.undoAct, SIGNAL("triggered()"), self.undo)
+        
+        self.redoAct = QAction("Redo", self)
+        self.redoAct.setShortcut("Ctrl+Shift+Z")
+        self.redoAct.setStatusTip("Redo")
+        self.connect(self.redoAct, SIGNAL("triggered()"), self.redo)
         
         self.cutAct = QAction("Cu&t", self)
         self.cutAct.setShortcut("Ctrl+X")
@@ -591,6 +605,9 @@ class ApplicationWindow(QMainWindow):
         self.fileMenu.addAction(self.exitAct)
 
         self.editMenu = self.menuBar().addMenu(self.tr("&Edit"))
+        self.editMenu.addAction(self.undoAct)
+        self.editMenu.addAction(self.redoAct)
+        self.editMenu.addSeparator()
         self.editMenu.addAction(self.cutAct)
         self.editMenu.addAction(self.copyAct)
         self.editMenu.addAction(self.pasteAct)
@@ -632,7 +649,6 @@ class ApplicationWindow(QMainWindow):
             self.tab_widget.setTabText(index, os.path.basename(filename))
         
         self.tab_widget.setTabToolTip(index, filename)
-        self.saveAct.setEnabled(mod)
     
     def newDoc(self, filename=None):
         tab = QSci(self, filename)
@@ -641,6 +657,7 @@ class ApplicationWindow(QMainWindow):
         self.connect(tab, SIGNAL('status_message'), self.statusMessage)
         self.connect(tab, SIGNAL("modificationChanged(bool)"), self.setCurrentTabLabel)
         self.connect(tab, SIGNAL("copyAvailable(bool)"), self.cutAct.setEnabled)
+        self.connect(tab, SIGNAL("modificationChanged(bool)"), self.undoAct.setEnabled)
         self.connect(tab, SIGNAL("copyAvailable(bool)"), self.copyAct.setEnabled)
         
         filename = tab.filename
@@ -653,8 +670,9 @@ class ApplicationWindow(QMainWindow):
     
     def updateMenus(self):
         w = self.tab_widget.currentWidget()
-        #self.saveAct.setEnabled(w.isModified())
         
+        self.undoAct.setEnabled(w.isUndoAvailable())
+        self.undoAct.setEnabled(w.isRedoAvailable())
         hasSelection = w.hasSelectedText()
         self.cutAct.setEnabled(hasSelection)
         self.copyAct.setEnabled(hasSelection)
