@@ -116,7 +116,7 @@ class QSci(QsciScintilla):
     def setAutoLexer(self):
         basename = ext = ''
         if self.filename:
-            basename, ext = os.path.splitext(self.filename)
+            basename, ext = os.path.splitext(os.path.basename(self.filename))
         
         lex = None
         if ext in ('.py', '.spy'):
