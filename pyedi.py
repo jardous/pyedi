@@ -343,7 +343,7 @@ class QSci(QsciScintilla):
         if self.isModified():
             self.setModified(False)
         else:
-            self.modificationChanged()
+            self.emit(SIGNAL('modificationChanged(bool)'), False)
         
         self.emit(SIGNAL('status_message'), 'File %s saved' % (self.filename or ''), 2000)
         return True
