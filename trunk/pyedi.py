@@ -134,7 +134,7 @@ class QSci(QsciScintilla):
             lex = QsciLexerCPP(self)
             lex.commentString = '//'
             lex.blockCommentStrings = ('/*', '*/')
-        elif basename in ['Makefile']:
+        elif basename in ['Makefile'] or ext in ['.mk']:
             lex = QsciLexerMakefile(self)
             lex.commentString = '#'
             lex.blockCommentStrings = None
@@ -497,7 +497,7 @@ class ApplicationWindow(QMainWindow):
         self.openAct = QAction("&Open...", self)
         self.openAct.setShortcut("Ctrl+O")
         self.openAct.setStatusTip("Open an existing file")
-        self.connect(self.openAct, SIGNAL("triggered()"), self.newDoc)
+        self.connect(self.openAct, SIGNAL("triggered()"), self.fileOpen)
         
         self.saveAct = QAction("&Save", self)
         self.saveAct.setShortcut("Ctrl+S")
@@ -629,14 +629,14 @@ class ApplicationWindow(QMainWindow):
         self.toolsMenu.addAction(self.macCRAct)
     
     def fileOpen(self):
-        filename = QFileDialog.getOpenFileName(QString.null, QString.null, self)
+        filename = QFileDialog.getOpenFileName(self, '', '')
         if filename.isEmpty():
             self.statusMessage('Loading aborted', 2000)
             return
         
         filename = unicode(filename)
         self.newDoc(filename)
-        self.statusBar().message('Loaded document %s' % filename, 2000)
+        self.statusMessage('Loaded document %s' % filename, 2000)
     
     def setCurrentTabLabel(self, mod):
         index = self.tab_widget.currentIndex()
