@@ -118,6 +118,8 @@ class QSci(QsciScintilla):
         if self.filename:
             basename, ext = os.path.splitext(os.path.basename(self.filename))
         
+        self.setIndentationsUseTabs(0)
+        self.setIndentationWidth(INDENT_WIDTH)
         lex = None
         if ext in ('.py', '.spy'):
             lex = QsciLexerPython(self)
@@ -130,6 +132,8 @@ class QSci(QsciScintilla):
             lex = QsciLexerHTML(self)
             lex.commentString = None
             lex.blockCommentStrings = ('<!--', '-->')
+            self.setIndentationsUseTabs(1)
+            self.setIndentationWidth(1)
         elif ext in ('.c', '.cc', '.cpp', '.h', '.hh'):
             lex = QsciLexerCPP(self)
             lex.commentString = '//'
@@ -138,6 +142,8 @@ class QSci(QsciScintilla):
             lex = QsciLexerMakefile(self)
             lex.commentString = '#'
             lex.blockCommentStrings = None
+            self.setIndentationsUseTabs(1)
+            self.setIndentationWidth(1)
         elif ext in ('.sh', '.cfg'):
             lex = QsciLexerBash(self)
             lex.commentString = '#'
@@ -171,7 +177,6 @@ class QSci(QsciScintilla):
         self.setIndentationWidth(INDENT_WIDTH)
         self.setIndentationGuides(True)
         self.setWhitespaceVisibility(QsciScintilla.WsVisible)
-        self.setIndentationsUseTabs(0)
         self.setAutoCompletionThreshold(1)
         self.setWrapMode(QsciScintilla.WrapWord)
         self.setFolding(QsciScintilla.PlainFoldStyle)
@@ -736,6 +741,7 @@ if __name__=="__main__":
     app.setWindowIcon(appico)
     
     files = sys.argv[1:]
+    
     if files:
         for f in files:
             f = os.path.abspath(f)
