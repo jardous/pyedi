@@ -35,6 +35,12 @@ from PyQt4.QtGui import *
 from PyQt4.Qsci import *
 from PyQt4.Qsci import QsciScintillaBase as qs
 
+try:
+    import psyco
+    psyco.full() #PSYCO speeds up Python
+except:
+    pass
+
 __author__ = u'jiri.popek@gmail.com (Jiří Popek)'
 
 FONT_SIZE = 10
