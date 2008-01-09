@@ -634,7 +634,11 @@ class ApplicationWindow(QMainWindow):
         self.toolsMenu.addAction(self.macCRAct)
     
     def fileOpen(self):
-        filename = QFileDialog.getOpenFileName(self, '', '')
+        index = self.tab_widget.currentIndex()
+        w = self.tab_widget.widget(index)
+        default_dir = os.path.dirname(w.filename)
+        
+        filename = QFileDialog.getOpenFileName(self, 'Select text file to open', default_dir)
         if filename.isEmpty():
             self.statusMessage('Loading aborted', 2000)
             return
