@@ -120,7 +120,7 @@ class QSci(QsciScintilla):
         
         self.setIndentationsUseTabs(0)
         self.setIndentationWidth(INDENT_WIDTH)
-        lex = None
+        lex = QsciLexerProperties() # set default lexer to properties
         if ext in ('.py', '.spy'):
             lex = QsciLexerPython(self)
             lex.setIndentationWarning(QsciLexerPython.Inconsistent)
@@ -163,14 +163,9 @@ class QSci(QsciScintilla):
         
         font = QFont("Monospace", FONT_SIZE)
         
-        if lex:
-            lex.setDefaultFont(font)
-            self.setLexer(lex)
-        
-        # a little hack - set font for comments
-        for style in range(0, 18):
-            self.SendScintilla(qs.SCI_STYLESETFONT, style, "monospace")
-            self.SendScintilla(qs.SCI_STYLESETSIZE, style, FONT_SIZE)
+        lex.setDefaultFont(font)
+        lex.setFont(font)
+        self.setLexer(lex)
         
         self.setBraceMatching(QsciScintilla.SloppyBraceMatch)
         self.setAutoIndent(True)
@@ -179,6 +174,7 @@ class QSci(QsciScintilla):
         self.setWhitespaceVisibility(QsciScintilla.WsVisible)
         self.setAutoCompletionSource(QsciScintilla.AcsAll)
         self.setAutoCompletionThreshold(2)
+        self.setAutoCompletionReplaceWord(True)
         self.setWrapMode(QsciScintilla.WrapWord)
         self.setFolding(QsciScintilla.PlainFoldStyle)
         self.setTabIndents(True)
