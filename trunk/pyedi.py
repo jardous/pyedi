@@ -168,16 +168,17 @@ class QSci(QsciScintilla):
             self.setLexer(lex)
         
         # a little hack - set font for comments
-        for style in range(0, 12):
+        for style in range(0, 18):
             self.SendScintilla(qs.SCI_STYLESETFONT, style, "monospace")
             self.SendScintilla(qs.SCI_STYLESETSIZE, style, FONT_SIZE)
         
         self.setBraceMatching(QsciScintilla.SloppyBraceMatch)
         self.setAutoIndent(True)
-        self.setIndentationWidth(INDENT_WIDTH)
         self.setIndentationGuides(True)
+        self.setIndentationWidth(INDENT_WIDTH)
         self.setWhitespaceVisibility(QsciScintilla.WsVisible)
-        self.setAutoCompletionThreshold(1)
+        self.setAutoCompletionSource(QsciScintilla.AcsAll)
+        self.setAutoCompletionThreshold(2)
         self.setWrapMode(QsciScintilla.WrapWord)
         self.setFolding(QsciScintilla.PlainFoldStyle)
         self.setTabIndents(True)
