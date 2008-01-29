@@ -29,6 +29,7 @@
 # #####################################################################
 
 import sys, string, os
+from math import log
 
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -69,7 +70,10 @@ class QSci(QsciScintilla):
             if self.loadDocument(filename):
                 self.filename = filename
         
+        self.connect(self, SIGNAL("linesChanged()"), self.linesChanged)
+        
         self.setUtf8(True)
+        self.setAutoLexer()
     
     def eventFilter(self, object, event):
         used = 0
@@ -114,7 +118,8 @@ class QSci(QsciScintilla):
     
     def setMargins(self):
         if self.marginLineNumbers(0):
-            self.setMarginWidth(0, len(str(self.lines()))*FONT_SIZE)
+            l = int(log(self.lines(), 10))
+            self.setMarginWidth(0, (l+1)*FONT_SIZE)
         else:
             self.setMarginWidth(0, 0)
         self.setMarginWidth(1, 0)
@@ -313,10 +318,11 @@ class QSci(QsciScintilla):
     def marginsWidth(self):
         return self.marginWidth(0) + self.marginWidth(1) + self.marginWidth(2)
     
-#    def contextMenuEvent(self, evt):
-#        evt.accept()
-#        if evt.x() > self.marginsWidth():
-#            self.menu.popup(evt.globalPos())
+    def linesChanged(self):
+        l = self.lines()
+        if l<2: return
+        if int(log(l, 10)) > int(log(l-1, 10)):
+            self.setMargins()
     
     def find(self):
         """find next occurence of text starting from current position"""
