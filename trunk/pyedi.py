@@ -96,6 +96,18 @@ class QSci(QsciScintilla):
             QMessageBox.warning(self, APPNAME, "Cannot read file %s:\n%s." %(filename, file.errorString()))
             return False
         
+        om = int(file.openMode())
+        if not om & QFile.WriteOnly:
+            self.setReadOnly(True)
+        #print om & QFile.ReadOnly
+        
+#                print 'file', file
+#        if not file.open(QFile.ReadOnly | QFile.WriteOnly | QFile.Text):
+#            print 'can write'
+#            self.setReadOnly(True)
+#            self.emit(SIGNAL('status_message'), 'Opened read-only file', 2000)
+#        else:
+
         self.filename = filename
         instr = QTextStream(file)
         self.setUtf8(True)
@@ -346,7 +358,7 @@ class QSci(QsciScintilla):
     def save(self):
         file = QFile(self.filename)
         if not file.open(QFile.WriteOnly | QFile.Text):
-            QMessageBox.warning(self, APPNAME, "Cannot write file %s:\n%s." % (fileName, file.errorString()))
+            QMessageBox.warning(self, APPNAME, "Cannot write file %s:\n%s." % (str(file.fileName()), file.errorString()))
             return False
         
         outstr = QTextStream(file)
@@ -368,6 +380,7 @@ class QSci(QsciScintilla):
             self.filename = unicode(fn)
             self.save()
             self.setAutoLexer()
+            self.setReadOnly(False)
             return True
         else:
             self.emit(SIGNAL('status_message'), 'Saving aborted', 2000)
@@ -444,7 +457,7 @@ class ApplicationWindow(QMainWindow):
         
         self.readSettings()
         
-        self.statusMessage('Ready', 2000)
+#        self.statusMessage('Ready', 2000)
     
     def readSettings(self):
         settings = QSettings('popeksoft', APPNAME)
@@ -679,7 +692,15 @@ class ApplicationWindow(QMainWindow):
         self.connect(tab, SIGNAL("copyAvailable(bool)"), self.copyAct.setEnabled)
         
         filename = tab.filename
-        self.tab_widget.addTab(tab, os.path.basename(filename or DEFAULT_FILENAME))
+        
+        tabname = DEFAULT_FILENAME
+        if filename:
+            tabname = os.path.basename(filename)
+        
+        if tab.isReadOnly():
+            tabname = 'RO ' + tabname
+        
+        self.tab_widget.addTab(tab, tabname)
         self.tab_widget.setCurrentWidget(tab)
         self.tab_widget.setTabToolTip(self.tab_widget.currentIndex(), filename or 'New document')
         tab.setFocus()
@@ -757,7 +778,7 @@ if __name__=="__main__":
     
     if files:
         for f in files:
-            f = os.path.abspath(f)
+            f = os.path.expanduser(f)
             main_window.newDoc(f)
     else:
         main_window.newDoc()
