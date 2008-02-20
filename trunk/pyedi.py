@@ -60,6 +60,7 @@ main_window = None
 class QSci(QsciScintilla):
     
     filename = None
+    mtime = 0 # time of most recent content modification
     
     def __init__(self, parent, filename):
         QsciScintilla.__init__(self, parent)
@@ -74,6 +75,16 @@ class QSci(QsciScintilla):
         
         self.setUtf8(True)
         self.setAutoLexer()
+    
+    
+    def focusInEvent(self, event):
+        """ check if document has changed """
+        if self.mtime != os.stat(self.filename).st_mtime:
+            ret = QMessageBox.warning(self, "Reload", "Document get changed. Reload?", QMessageBox.Yes | QMessageBox.No)
+            if ret == QMessageBox.Yes:
+                self.loadDocument(self.filename)
+            else:
+                self.mtime = os.stat(self.filename).st_mtime
     
     def eventFilter(self, object, event):
         used = 0
@@ -90,6 +101,7 @@ class QSci(QsciScintilla):
         return used
     
     def loadDocument(self, filename):
+        self.mtime = os.stat(filename).st_mtime
         file = QFile(filename)
         
         if not file.open(QFile.ReadOnly | QFile.Text):
@@ -101,6 +113,9 @@ class QSci(QsciScintilla):
 #        print om, QFile.WriteUser
 #        if not (om & QFile.WriteUser):
 #            self.setReadOnly(True)
+        
+        # if not os.access(filename, os.W_OK):
+        #     self.setReadOnly(True)
         
         self.filename = filename
         instr = QTextStream(file)
@@ -366,6 +381,9 @@ class QSci(QsciScintilla):
             self.emit(SIGNAL('modificationChanged(bool)'), False)
         
         self.emit(SIGNAL('status_message'), 'File %s saved' % (self.filename or ''), 2000)
+        
+        self.mtime = os.stat(self.filename).st_mtime
+        
         return True
     
     def saveAs(self):
