@@ -676,6 +676,12 @@ class ApplicationWindow(QMainWindow):
         self.tab_widget.setTabToolTip(index, filename)
     
     def newDoc(self, filename=None):
+        for i in range(self.tab_widget.count()):
+            tab = self.tab_widget.widget(i)
+            if tab.filename == filename:
+                self.tab_widget.setCurrentWidget(tab)
+                return
+        
         tab = QSci(self, filename)
         tab.setUtf8(True)
         
@@ -772,7 +778,8 @@ if __name__=="__main__":
     
     if files:
         for f in files:
-            f = os.path.expanduser(f)
+            #f = os.path.expanduser(f)
+            f = os.path.abspath(f)
             main_window.newDoc(f)
     else:
         main_window.newDoc()
