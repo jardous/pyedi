@@ -75,7 +75,6 @@ class QSci(QsciScintilla):
         self.setUtf8(True)
         self.setAutoLexer()
     
-    
     def focusInEvent(self, event):
         """ check if document has changed """
         if self.filename and self.mtime != os.stat(self.filename).st_mtime:
@@ -84,20 +83,6 @@ class QSci(QsciScintilla):
                 self.loadDocument(self.filename)
             else:
                 self.mtime = os.stat(self.filename).st_mtime
-    
-    def eventFilter(self, object, event):
-        used = 0
-        if event.type() == QEvent.DragEnter:
-            used = self.dragEnterEvent(event)
-        elif event.type() == QEvent.DragMove:
-            used = self.dragMoveEvent(event)
-        elif event.type() == QEvent.DragLeave:
-            used = self.dragLeaveEvent(event)
-        elif event.type() == QEvent.Drop:
-            used = self.dropEvent(event)
-        if not used:
-            used = qs.eventFilter(self, object, event)
-        return used
     
     def loadDocument(self, filename):
         self.mtime = os.stat(filename).st_mtime
@@ -518,7 +503,16 @@ class ApplicationWindow(QMainWindow):
         return self.tab_widget.currentWidget().checkSyntaxAvailable()
     def unindent(self):
         w = self.tab_widget.currentWidget()
-        w.unindent(w.getCursorPosition()[0])
+        selection = w.getSelection()
+        w.beginUndoAction()
+        if not w.hasSelectedText():
+            line, index = w.getCursorPosition()
+            w.unindent(line)
+        else:
+            lineFrom, indexFrom, lineTo, indexTo = w.getSelection()
+            for l in range(lineFrom, lineTo+1):
+                w.unindent(l)
+        w.endUndoAction()
     
     def createActions(self):
         self.newAct = QAction("&New", self)
