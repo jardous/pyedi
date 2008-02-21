@@ -108,14 +108,8 @@ class QSci(QsciScintilla):
             QMessageBox.warning(self, APPNAME, "Cannot read file %s:\n%s." %(filename, file.errorString()))
             return False
         
-#TODO: set readonly when necessary
-#        om = int(file.permissions())
-#        print om, QFile.WriteUser
-#        if not (om & QFile.WriteUser):
-#            self.setReadOnly(True)
-        
-        # if not os.access(filename, os.W_OK):
-        #     self.setReadOnly(True)
+        if not os.access(filename, os.W_OK):
+            self.setReadOnly(True)
         
         self.filename = filename
         instr = QTextStream(file)
