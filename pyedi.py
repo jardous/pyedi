@@ -59,13 +59,12 @@ main_window = None
 
 class QSci(QsciScintilla):
     
-    filename = None
-    mtime = 0 # time of most recent content modification
-    
     def __init__(self, parent, filename):
         QsciScintilla.__init__(self, parent)
         self.SendScintilla(qs.SCI_SETHSCROLLBAR)
         self.dnd = False
+        self.filename = None
+        self.mtime = 0 # time of most recent content modification
         
         if filename:
             if self.loadDocument(filename):
@@ -79,7 +78,7 @@ class QSci(QsciScintilla):
     
     def focusInEvent(self, event):
         """ check if document has changed """
-        if self.mtime != os.stat(self.filename).st_mtime:
+        if self.filename and self.mtime != os.stat(self.filename).st_mtime:
             ret = QMessageBox.warning(self, "Reload", "Document get changed. Reload?", QMessageBox.Yes | QMessageBox.No)
             if ret == QMessageBox.Yes:
                 self.loadDocument(self.filename)
