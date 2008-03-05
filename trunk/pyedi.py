@@ -48,7 +48,7 @@ FONT_SIZE = 10
 EOL_UNIX, EOL_WIN, EOL_MAC = 2, 0, 1
 eolM = {EOL_WIN:'\r\n', EOL_MAC:'\r', EOL_UNIX:'\n'}
 
-VERSION = '0.1.0'
+VERSION = '0.1.2'
 APPNAME = 'pyedi'
 
 INDENT_WIDTH = 4
@@ -56,6 +56,8 @@ INDENT_WIDTH = 4
 DEFAULT_FILENAME = 'Untitled.txt'
 
 main_window = None
+
+print "QScintilla version", QSCINTILLA_VERSION_STR
 
 class QSci(QsciScintilla):
     
@@ -83,6 +85,18 @@ class QSci(QsciScintilla):
                 self.loadDocument(self.filename)
             else:
                 self.mtime = os.stat(self.filename).st_mtime
+    
+    def keyPressEvent(self, event):
+        t = event.text()
+        opening = ['(', '{', '[']
+        closing = [')', '}', ']']
+        self.beginUndoAction()
+        if not self.isReadOnly():
+            if t in opening:
+                i = opening.index(t)
+                self.insert(closing[i])
+        QsciScintilla.keyPressEvent(self, event)
+        self.endUndoAction()
     
     def loadDocument(self, filename):
         self.mtime = os.stat(filename).st_mtime
@@ -178,6 +192,9 @@ class QSci(QsciScintilla):
         self.setLexer(lex)
         
         self.setBraceMatching(QsciScintilla.SloppyBraceMatch)
+        self.setCaretWidth(2)
+        self.setCaretLineVisible(True)
+        self.setCaretForegroundColor(QColor(0,0,0))
         self.setAutoIndent(True)
         self.setIndentationGuides(True)
         self.setIndentationWidth(INDENT_WIDTH)
