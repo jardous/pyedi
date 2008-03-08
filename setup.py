@@ -4,7 +4,7 @@
 # #####################################################################
 # Copyright (c) 2007 Jiří Popek <jiri.popek@gmail.com>
 #
-# name        : pyedit
+# name        : pyedi
 # description : Python programming editor setup script
 #
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
