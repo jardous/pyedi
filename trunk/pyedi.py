@@ -85,6 +85,7 @@ class QSci(QsciScintilla):
                 self.loadDocument(self.filename)
             else:
                 self.mtime = os.stat(self.filename).st_mtime
+        QsciScintilla.focusInEvent(self, event)
     
     def keyPressEvent(self, event):
         t = event.text()
