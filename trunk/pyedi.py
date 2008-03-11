@@ -91,19 +91,24 @@ class QSci(QsciScintilla):
         t = str(event.text())
         opening = ['(', '{', '[', "'", '"']
         closing = [')', '}', ']', "'", '"']
+        
         self.beginUndoAction()
         
         if not self.isReadOnly():
             if t and (ord(t) == 8): # backspace
                 line, index = self.getCursorPosition()
-                prev, next = list(self.text(line)[index-1:index+1])
-                if prev in opening:
-                    if opening.index(prev) == closing.index(next):
-                        self.setCursorPosition(line, index+1)
-                        QsciScintilla.keyPressEvent(self, event) # process backspace twice
+                prev = self.text(line)[index-1]
+                if index < self.lineLength(line):
+                    next = self.text(line)[index]
+                    if prev in opening:
+                        if opening.index(prev) == closing.index(next):
+                            self.setCursorPosition(line, index+1)
+                            QsciScintilla.keyPressEvent(self, event) # process backspace twice
+            
             if t in opening:
                 i = opening.index(t)
                 self.insert(closing[i])
+        
         QsciScintilla.keyPressEvent(self, event)
         self.endUndoAction()
     
