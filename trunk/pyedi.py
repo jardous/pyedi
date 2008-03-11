@@ -88,11 +88,19 @@ class QSci(QsciScintilla):
         QsciScintilla.focusInEvent(self, event)
     
     def keyPressEvent(self, event):
-        t = event.text()
-        opening = ['(', '{', '[']
-        closing = [')', '}', ']']
+        t = str(event.text())
+        opening = ['(', '{', '[', "'", '"']
+        closing = [')', '}', ']', "'", '"']
         self.beginUndoAction()
+        
         if not self.isReadOnly():
+            if t and (ord(t) == 8): # backspace
+                line, index = self.getCursorPosition()
+                prev, next = list(self.text(line)[index-1:index+1])
+                if prev in opening:
+                    if opening.index(prev) == closing.index(next):
+                        self.setCursorPosition(line, index+1)
+                        QsciScintilla.keyPressEvent(self, event) # process backspace twice
             if t in opening:
                 i = opening.index(t)
                 self.insert(closing[i])
