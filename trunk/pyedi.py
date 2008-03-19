@@ -100,7 +100,7 @@ class QSci(QsciScintilla):
                 prev = self.text(line)[index-1]
                 if index < self.lineLength(line):
                     next = self.text(line)[index]
-                    if prev in opening:
+                    if (prev in opening) and (next in closing):
                         if opening.index(prev) == closing.index(next):
                             self.setCursorPosition(line, index+1)
                             QsciScintilla.keyPressEvent(self, event) # process backspace twice
