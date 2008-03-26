@@ -88,7 +88,7 @@ class QSci(QsciScintilla):
         QsciScintilla.focusInEvent(self, event)
     
     def keyPressEvent(self, event):
-        t = str(event.text())
+        t = u"%s" % event.text()
         opening = ['(', '{', '[', "'", '"']
         closing = [')', '}', ']', "'", '"']
         
