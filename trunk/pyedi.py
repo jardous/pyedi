@@ -59,6 +59,9 @@ main_window = None
 
 print "QScintilla version", QSCINTILLA_VERSION_STR
 
+opening = ['(', '{', '[', "'", '"', '<']
+closing = [')', '}', ']', "'", '"', '>']
+
 class QSci(QsciScintilla):
     
     def __init__(self, parent, filename):
@@ -69,9 +72,9 @@ class QSci(QsciScintilla):
         self.mtime = 0 # time of most recent content modification
         
         if filename:
-            if self.loadDocument(filename):
-                self.filename = filename
-        
+            self.filename = filename
+            if os.path.exists(filename):
+                self.loadDocument(filename)
         self.connect(self, SIGNAL("linesChanged()"), self.linesChanged)
         
         self.setUtf8(True)
@@ -79,6 +82,8 @@ class QSci(QsciScintilla):
     
     def focusInEvent(self, event):
         """ check if document has changed """
+        if not os.path.exists(self.filename): return
+        
         if self.filename and self.mtime != os.stat(self.filename).st_mtime:
             ret = QMessageBox.warning(self, "Reload", "Document get changed. Reload?", QMessageBox.Yes | QMessageBox.No)
             if ret == QMessageBox.Yes:
@@ -89,21 +94,20 @@ class QSci(QsciScintilla):
     
     def keyPressEvent(self, event):
         t = u"%s" % event.text()
-        opening = ['(', '{', '[', "'", '"']
-        closing = [')', '}', ']', "'", '"']
         
         self.beginUndoAction()
         
         if not self.isReadOnly():
             if t and (ord(t) == 8): # backspace
                 line, index = self.getCursorPosition()
-                prev = self.text(line)[index-1]
-                if index < self.lineLength(line):
-                    next = self.text(line)[index]
-                    if (prev in opening) and (next in closing):
-                        if opening.index(prev) == closing.index(next):
-                            self.setCursorPosition(line, index+1)
-                            QsciScintilla.keyPressEvent(self, event) # process backspace twice
+                if index:
+                    prev = self.text(line)[index-1]
+                    if index < self.lineLength(line):
+                        next = self.text(line)[index]
+                        if (prev in opening) and (next in closing):
+                            if opening.index(prev) == closing.index(next):
+                                self.setCursorPosition(line, index+1)
+                                QsciScintilla.keyPressEvent(self, event) # process backspace twice
             
             if t in opening:
                 i = opening.index(t)
@@ -481,7 +485,7 @@ class ApplicationWindow(QMainWindow):
 #        self.statusMessage('Ready', 2000)
     
     def readSettings(self):
-        settings = QSettings('popeksoft', APPNAME)
+        settings = QSettings('pyedi', APPNAME)
         pos = settings.value('/geometry/pos', QVariant(QPoint(0, 0))).toPoint()
         size = settings.value('/geometry/size', QVariant(QSize(800,600))).toSize()
         
@@ -489,7 +493,7 @@ class ApplicationWindow(QMainWindow):
         self.move(pos)
     
     def writeSettings(self):
-        settings = QSettings('popeksoft', APPNAME)
+        settings = QSettings('pyedi', APPNAME)
         settings.setValue("/geometry/pos", QVariant(self.pos()))
         settings.setValue("/geometry/size", QVariant(self.size()))
     
