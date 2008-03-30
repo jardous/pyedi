@@ -93,7 +93,7 @@ class QSci(QsciScintilla):
         QsciScintilla.focusInEvent(self, event)
     
     def keyPressEvent(self, event):
-        t = u"%s" % event.text()
+        t = unicode(event.text())
         
         self.beginUndoAction()
         
@@ -103,7 +103,7 @@ class QSci(QsciScintilla):
                 if index:
                     prev = self.text(line)[index-1]
                     if index < self.lineLength(line):
-                        next = self.text(line)[index]
+                        next = self.text(line)[index-1]
                         if (prev in opening) and (next in closing):
                             if opening.index(prev) == closing.index(next):
                                 self.setCursorPosition(line, index+1)
@@ -231,7 +231,7 @@ class QSci(QsciScintilla):
         eline = None
         ecolumn = 0
         edescr = ''
-        doc = str(self.text().toUtf8())
+        doc = unicode(self.text())
         
         if isinstance(self.lexer(), QsciLexerPython):
             import compiler
