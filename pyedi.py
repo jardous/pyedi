@@ -82,7 +82,8 @@ class QSci(QsciScintilla):
     
     def focusInEvent(self, event):
         """ check if document has changed """
-        if not os.path.exists(self.filename): return
+        if self.filename:
+            if not os.path.exists(self.filename): return
         
         if self.filename and self.mtime != os.stat(self.filename).st_mtime:
             ret = QMessageBox.warning(self, "Reload", "Document get changed. Reload?", QMessageBox.Yes | QMessageBox.No)
