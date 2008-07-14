@@ -770,9 +770,10 @@ class ApplicationWindow(QMainWindow):
     
     def currentTabChanged(self, index):
         w = self.tab_widget.widget(index)
-        w.setFocus()
-        self.updateMenus()
-        self.statusMessage(w.filename or DEFAULT_FILENAME, 1000)
+        if w:
+            self.updateMenus()
+            w.setFocus()
+            self.statusMessage(w.filename or DEFAULT_FILENAME, 1000)
     
     def closeCurrentDoc(self):
         if self.tab_widget.count()==1: return
