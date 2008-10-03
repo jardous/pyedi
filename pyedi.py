@@ -93,26 +93,82 @@ class QSci(QsciScintilla):
                 self.mtime = os.stat(self.filename).st_mtime
         QsciScintilla.focusInEvent(self, event)
     
+    def find_first_second(self, line, index, i=0):
+        linelen = self.lineLength(line)
+        text = self.text(line).toUtf8()
+        if index == 0:
+            first = text[index]
+            second = text[index+i]
+            print 'index == 0', first, second
+        elif index == linelen:
+            first = text[index-2+i]
+            second = text[index-1+i]
+            print 'index == linelen', first, second
+        else:
+            first = text[index-1+i]
+            second = text[index+i]
+            print 'index < linelen', first, second
+        return first, second
+    
+    def get_prev_char(self, line, pos, index=1):
+        text = self.text(line).toUtf8()
+        if index == 0:
+            return None
+        else:
+            return text[pos-index]
+    
+    def get_next_char(self, line, pos, index=0):
+        linelen = self.lineLength(line)
+        print 'pos, linelen', pos, linelen
+        text = self.text(line).toUtf8()
+        if pos == linelen:
+            return None
+        else:
+            return text[pos+index]
+    
     def keyPressEvent(self, event):
         t = unicode(event.text())
         
         self.beginUndoAction()
         
         if not self.isReadOnly():
-            if t and (ord(t) == 8): # backspace
-                line, index = self.getCursorPosition()
-                if index:
-                    prev = self.text(line)[index-1]
-                    if index < self.lineLength(line):
-                        next = self.text(line)[index-1]
-                        if (prev in opening) and (next in closing):
-                            if opening.index(prev) == closing.index(next):
+            if t:
+                if ord(t) == 8: # backspace
+                    line, index = self.getCursorPosition()
+                    if index:
+                        first = self.get_prev_char(line, index)
+                        second = self.get_next_char(line, index)
+                        if first in closing:
+                            second = first
+                            first =  self.get_prev_char(line, index, 2)
+                            if not first in opening:
+                                first = None
+                            else:
+                                QsciScintilla.keyPressEvent(self, event) # process backspace twice
+                        elif first and second:
+                            if opening.index(first) == closing.index(second):
                                 self.setCursorPosition(line, index+1)
                                 QsciScintilla.keyPressEvent(self, event) # process backspace twice
-            
-            if t in opening:
-                i = opening.index(t)
-                self.insert(closing[i])
+                elif ord(t) == 127: # delete
+                    line, index = self.getCursorPosition()
+                    if index:
+                        first = self.get_next_char(line, index)
+                        second = self.get_next_char(line, index, 1)
+                        if first in closing:
+                            second = first
+                            first = self.get_prev_char(line, index)
+                            if not first in opening:
+                                first = None
+                            else:
+                                self.setCursorPosition(line, index-1)
+                                QsciScintilla.keyPressEvent(self, event) # process backspace twice
+                        elif (first in opening) and (second in closing):
+                            if opening.index(first) == closing.index(second):
+                                QsciScintilla.keyPressEvent(self, event) # process delete twice
+                # add closing bracket automatically
+                if t in opening:
+                    i = opening.index(t)
+                    self.insert(closing[i])
         
         QsciScintilla.keyPressEvent(self, event)
         self.endUndoAction()
